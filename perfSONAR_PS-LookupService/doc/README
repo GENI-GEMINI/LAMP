@@ -1,0 +1,185 @@
+			              perfSONAR Lookup Service
+
+--------------------------------------------------------------------------------
+
+About:
+------
+
+The perfSONAR-PS Lookup Service (LS) addresses the always challenging problem of
+resource discovery for the perfSONAR framework. Service instances that manage
+datasets are only useful when they can be contacted by consumers. Consumers can
+only function when there is data available. To manage these problems in a
+dynamic environment such as perfSONAR, it is necessary to register, maintain,
+and query for the services that may contain interesting data.
+
+Every perfSONAR-PS service is capable of registering location and metadata
+information with the perfSONAR-PS LS.  The LS then stores, summarizes, and
+shares this information with the global Information Services (IS) framework.
+Clients can then search for this information in numerous ways, making it easier
+to locate resources without asking services for information directly.  
+
+The perfSONAR-PS LS relies on an XML database, Oracle DB XML, to store service
+registration information in a native manner. Using the power of the XPath and
+XQuery standards it is then possible for client applications and services alike
+to query for information in a uniform and powerful manner. All perfSONAR
+services are capable of registering information with an LS instantiation, thus
+deploying this service within your framework is paramount. 
+
+Installation:
+-------------
+
+Please read the INSTALL file for instructions
+  
+Configuration:
+--------------
+
+The LS comes with a base configuration via the installation procedure.  This is
+meant to allow for immediate testing as well as serve as a guide for customizing
+the service.  
+
+There are several files that may be adjusted manually to configure this service
+for a specific use case:
+
+  - etc/daemon.conf: 
+  
+    Contains information that identifies the service uniquely and allows it to
+    run in a given environment.  There are several options that should be
+    changed:  
+   
+      service_accesspoint      - Change the "hostname" from localhost
+      service_description      - Identifying information about the service
+      service_name             - Service Name (short)  
+
+    There are also several options that may be changed for a configuration:
+
+      port                     - Port the service listens on
+      endpoint                 - Endpoint to contact the service
+      ls_ttl                   - How long data can remain before being cleaned
+                                 Currently set to 5760 minutes (4 days)
+      ls_registration_interval - How often to contact gLS, 180 minute (3hr)
+      maintenance_interval     - How often to summarize the internal data, 
+                                 currently 120 minutes (2 hours)
+    
+    The rest of the items are normally not to be adjusted.  See also the service
+    wiki page for more information:
+    
+      http://code.google.com/p/perfsonar-ps/wiki/LS
+    
+  - etc/daemon_logger.conf:
+
+    Contains information related to logging, there are three modes:
+    
+      Log::Dispatch::Screen     - Log messages to screen (useful for debugging)
+      Log::Dispatch::Syslog     - Log messages to syslog facility
+      Log::Dispatch::FileRotate - Log messages to specified file
+
+    Each logging mode is achieved by commenting/uncommenting specific lines in
+    the file.  Refer to the file for instructions.
+
+    The rest of the items are normally not to be adjusted.  See also the service
+    wiki page for more information:
+    
+      http://code.google.com/p/perfsonar-ps/wiki/LS
+
+
+
+Starting/Stopping:
+------------------
+
+The service comes with init scripts that may be used to start and stop
+operation:
+
+  (sudo) /etc/init.d/lookup_service start
+  (sudo) /etc/init.d/lookup_service stop
+  (sudo) /etc/init.d/lookup_service restart
+
+The service can also be run in a manual fashion (useful for debugging):
+
+  (sudo) perl bin/daemon.pl --verbose --conf=etc/daemon.conf
+
+Testing:
+--------
+
+The service comes with a client application and several test messages that can
+be used to test functionality.  The client application sends the XML file
+specified on the command line as a request to the URL specified on the command
+line.  The XML response from the server is returned. There are many messages
+provided as examples, to test the service only one is recommended:
+
+  (sudo) perl bin/client.pl http://localhost:9995/perfSONAR_PS/services/hLS etc/requests/EchoRequest.xml
+
+These two will test the major functions of this service. To test:
+
+  1) Ensure the service is started, this can be done two ways:
+  
+    a) Start the service via the init script - you will not be able to monitor
+       the service 'live', but log files may be examined to determine if things
+       are working.  
+  
+    b) Start the service in 'debug' mode:
+    
+       (sudo) perl bin/daemon.pl --verbose --conf=etc/daemon.conf --logger=etc/daemon_logger.conf
+       
+       Be sure that logging is configured to the use the "Screen" so you may
+       monitor the service's activities.
+
+  2) Run the client:
+  
+     perl bin/client.pl URL FILENAME
+  
+  3) The results of the first test will be an XML message that indicates the service
+     is working:
+     
+<?xml version="1.0"?>
+<SOAP-ENV:Envelope xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/"
+xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/">
+  <SOAP-ENV:Header/>
+  <SOAP-ENV:Body>
+<nmwg:message xmlns:nmwg="http://ggf.org/ns/nmwg/base/2.0/"
+messageIdRef="EchoMessage1" id="message.12780503" type="EchoResponse"><nmwg:metadata
+metadataIdRef="metadata1"
+id="metadata.5353493"><nmwg:eventType>success.echo</nmwg:eventType></nmwg:metadata><nmwg:data
+metadataIdRef="metadata.5353493" id="data.1643179"><nmwgr:datum
+xmlns:nmwgr="http://ggf.org/ns/nmwg/result/2.0/">The echo request has
+passed.</nmwgr:datum></nmwg:data><nmwg:metadata
+xmlns:nmwg="http://ggf.org/ns/nmwg/base/2.0/" id="metadata1">
+    <nmwg:eventType>http://schemas.perfsonar.net/tools/admin/echo/2.0</nmwg:eventType>
+  </nmwg:metadata></nmwg:message>  </SOAP-ENV:Body>
+</SOAP-ENV:Envelope>
+     
+  4) If everything looks OK, return logging to normal and restart service via
+     the init system.  
+
+Maintenance:
+------------
+
+Subscribe to the user mailing lists if you are seeking help on some problem
+related to this software.  Announcements regarding availability of new releases
+will also be sent to these locations
+
+  perfSONAR-PS Users Group - https://mail.internet2.edu/wws/info/psps-users
+  perfSONAR-PS Announcements - https://mail.internet2.edu/wws/info/psps-announce
+
+  Performance Node Users - https://mail.internet2.edu/wws/info/performance-node-users
+  Performance Node Announcements - https://mail.internet2.edu/wws/info/performance-node-announce
+
+Also if you are using package management software and have installed the
+Internet2 software repository, a typical upgrade should download new releases:
+x
+  (sudo) yum update
+
+or
+
+  (sudo) apt-get upgrade
+  
+Finally, check the following websites for news of software releases:
+
+  http://software.internet2.edu
+  http://www.internet2.edu/performance
+
+--------------------------------------------------------------------------------
+
+Mon May 17 11:01:46 EDT 2010
+

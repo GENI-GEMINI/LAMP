@@ -1,0 +1,30 @@
+version 3.1
+  * Initial RPM release.
+  * The following development changes where added since the last release (0.9)
+    * Enabling of the Global Lookup Architecture
+    * Data Summarization
+    * New Message Support
+    * Improved Client API
+    * Performance Enhancements
+  * Bugfixes
+    - http://code.google.com/p/perfsonar-ps/issues/detail?id=56
+      gLS Residue   	 
+    - http://code.google.com/p/perfsonar-ps/issues/detail?id=63
+      gLS Summary Namespace 	 
+    - http://code.google.com/p/perfsonar-ps/issues/detail?id=72
+      libwww Error Messages 	 	 
+    - http://code.google.com/p/perfsonar-ps/issues/detail?id=75
+      XML DB issues on FreeBSD - Related Performance of gLS/hLS
+    - http://code.google.com/p/perfsonar-ps/issues/detail?id=79
+      Empty gLS/hLS Messages
+    - http://code.google.com/p/perfsonar-ps/issues/detail?id=105
+      hLS Summarization of DCN Data            
+    - http://code.google.com/p/perfsonar-ps/issues/detail?id=109
+      gLS Discovery of IP Addresses 	
+    - http://code.google.com/p/perfsonar-ps/issues/detail?id=159
+      makeDBConf Missing from LS package  
+    - http://code.google.com/p/perfsonar-ps/issues/detail?id=187
+      perl-Clone needed by hLS (other?) RPM 
+    - http://code.google.com/p/perfsonar-ps/issues/detail?id=375
+      LS silently does not register with gLS if doesn't have write permissions
+      to root_hints_file 
