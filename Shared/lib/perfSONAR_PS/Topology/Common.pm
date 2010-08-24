@@ -28,6 +28,7 @@ use perfSONAR_PS::Topology::ID qw( idConstruct idIsFQ idAddLevel idRemoveLevel i
 our @EXPORT_OK = qw( normalizeTopology validateDomain validateNode validatePort validateLink getTopologyNamespaces mergeNodes_general );
 
 my %topology_namespaces = (
+    unis      => "http://ogf.org/schema/network/topology/unis/20100528/",
     ctrlplane => "http://ogf.org/schema/network/topology/ctrlPlane/20070828/",
     ethernet  => "http://ogf.org/schema/network/topology/ethernet/20070828/",
     ipv4      => "http://ogf.org/schema/network/topology/ipv4/20070828/",
@@ -194,12 +195,20 @@ sub normalizeTopology_links {
                 }
 
                 if ( not defined $parent ) {
-                    my $msg = "Link $fqid references non-existent element $parent_id, moving to top-level";
-                    $logger->debug( $msg );
-
+                    #
+                    # GENI: only domains are top-level. 
+                    # XXX: Maybe should move link into domain.
+                    #
+                    my $msg = "Link $fqid references non-existent element $parent_id";
+                    $logger->error( $msg );
+                    return ( -1, $msg );
+                    
+                    #my $msg = "Link $fqid references non-existent element $parent_id, moving to top-level";
+                    #$logger->debug( $msg );
+                    #
                     # move it to the top level
-                    $root->removeChild( $link );
-                    $top_level->appendChild( $link );
+                    #$root->removeChild( $link );
+                    #$top_level->appendChild( $link );
                 }
                 else {
                     my $msg = "Moving link $fqid under element $parent_id";
@@ -308,10 +317,17 @@ sub normalizeTopology_ports {
                 my $node = $topology->{"nodes"}->{$node_id};
 
                 if ( not defined $node ) {
-
+                   #
+                    # GENI: only domains are top-level. 
+                    # XXX: Maybe should move port into domain.
+                    #
+                    my $msg = "Port $fqid references non-existent element $node_id";
+                    $logger->error( $msg );
+                    return ( -1, $msg );
+                    
                     # move it to the top level
-                    $root->removeChild( $port );
-                    $top_level->appendChild( $port );
+                    #$root->removeChild( $port );
+                    #$top_level->appendChild( $port );
                 }
                 else {
 
@@ -407,11 +423,16 @@ sub normalizeTopology_nodes {
                 my $domain = $topology->{"domains"}->{$domain_id};
 
                 if ( not defined $domain ) {
-                    my $msg = "Node $fqid references non-existent domain $domain_id, moving to top-level";
-                    $logger->debug( $msg );
+                    my $msg = "Node $fqid references non-existent domain $domain_id"; #, moving to top-level";
+                    #
+                    # GENI: Domain's must exist, and only domains are top-level.
+                    #
+                    $logger->error( $msg );
+                    return ( -1, $msg );
+                    #$logger->debug( $msg );
 
-                    $root->removeChild( $node );
-                    $top_level->appendChild( $node );
+                    #$root->removeChild( $node );
+                    #$top_level->appendChild( $node );
                 }
                 else {
                     $logger->debug( "Moving $fqid to $domain_id" );
@@ -509,15 +530,22 @@ sub normalizeTopology_paths {
                 my $domain_id = idRemoveLevel( $fqid, q{} );
                 my $domain = $topology->{"domains"}->{$domain_id};
                 if ( $domain_id eq q{} or not defined $domain ) {
-                    if ( $domain_id ne q{} ) {
-                        my $msg = "Path $fqid references non-existent domain $domain_id, moving to top-level";
-                        $logger->debug( $msg );
-                    }
-
-                    if ( $root != $top_level ) {
-                        $root->removeChild( $path );
-                        $top_level->appendChild( $path );
-                    }
+                    my $msg = "Path $fqid references non-existent domain $domain_id"; #, moving to top-level";
+                    #
+                    # GENI: Domain's must exist, and only domains are top-level.
+                    #
+                    $logger->error( $msg );
+                    return ( -1, $msg );
+                    
+                    #if ( $domain_id ne q{} ) {
+                    #    
+                    #    $logger->debug( $msg );
+                    #}
+                    #
+                    #if ( $root != $top_level ) {
+                    #    $root->removeChild( $path );
+                    #    $top_level->appendChild( $path );
+                    #}
                 }
                 else {
                     $logger->debug( "Moving $fqid to $domain_id" );
@@ -613,15 +641,22 @@ sub normalizeTopology_networks {
                 my $domain_id = idRemoveLevel( $fqid, q{} );
                 my $domain = $topology->{"domains"}->{$domain_id};
                 if ( $domain_id eq q{} or not defined $domain ) {
-                    if ( $domain_id ne q{} ) {
-                        my $msg = "Network $fqid references non-existent domain $domain_id, moving to top-level";
-                        $logger->debug( $msg );
-                    }
-
-                    if ( $root != $top_level ) {
-                        $root->removeChild( $network );
-                        $top_level->appendChild( $network );
-                    }
+                    #
+                    # GENI: Domain's must exist, and only domains are top-level.
+                    #
+                    my $msg = "Network $fqid references non-existent domain $domain_id";
+                    $logger->error( $msg );
+                    return ( -1, $msg );
+                    
+                    #if ( $domain_id ne q{} ) {
+                    #    my $msg = "Network $fqid references non-existent domain $domain_id, moving to top-level";
+                    #    $logger->debug( $msg );
+                    #}
+                    #
+                    #if ( $root != $top_level ) {
+                    #    $root->removeChild( $network );
+                    #    $top_level->appendChild( $network );
+                    #}
                 }
                 else {
                     $logger->debug( "Moving $fqid to $domain_id" );

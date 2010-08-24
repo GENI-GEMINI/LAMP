@@ -108,7 +108,9 @@ sub init {
             $default_description .= " in " . $self->getConf( "site_location" );
         }
         $self->configureConf( 'service_description', $default_description, $self->getConf( 'service_description' ) );
-
+        
+        $self->configureConf( 'service_domain', undef, $self->getConf( 'service_domain' ) );
+        
         my $default_accesspoint;
         if ( $self->getConf( "external_address" ) ) {
             $default_accesspoint = 'http://' . $self->getConf( "external_address" ) . ':' . $self->{PORT} . $self->{ENDPOINT};
@@ -296,6 +298,7 @@ sub registerLS($) {
         my $ls_conf = {
             'SERVICE_TYPE'        => $self->getConf( 'service_type' ),
             'SERVICE_NAME'        => $self->getConf( 'service_name' ),
+            'SERVICE_DOMAIN'      => $self->getConf( 'service_domain' ),
             'SERVICE_DESCRIPTION' => $self->getConf( 'service_description' ),
             'SERVICE_ACCESSPOINT' => $self->getConf( 'service_accesspoint' ),
         };

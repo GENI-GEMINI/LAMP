@@ -66,22 +66,22 @@ sub new {
     if ( defined $uri and $uri ) {
         if ( ref( $uri ) eq "ARRAY" ) {
             foreach my $u ( @{$uri} ) {
-                if ( $u =~ m/^http:\/\// ) {
+                if ( $u =~ m/^https?:\/\// ) {
                     $u =~ s/\s+//g;
                     push @{ $self->{LS_CONF} }, $u;
                 }
                 else {
-                    $self->{LOGGER}->error( "URI \"" . $u . "\" must be of the form http://ADDRESS." );
+                    $self->{LOGGER}->error( "URI \"" . $u . "\" must be of the form http[s]://ADDRESS." );
                 }
             }
         }
         else {
-            if ( $uri =~ m/^http:\/\// ) {
+            if ( $uri =~ m/^https?:\/\// ) {
                 $uri =~ s/\s+//g;
                 push @{ $self->{LS_CONF} }, $uri;
             }
             else {
-                $self->{LOGGER}->error( "URI \"" . $uri . "\" must be of the form http://ADDRESS." );
+                $self->{LOGGER}->error( "URI \"" . $uri . "\" must be of the form http[s]://ADDRESS." );
             }
         }
     }
@@ -89,22 +89,22 @@ sub new {
     if ( defined $hints and $hints ) {
         if ( ref( $hints ) eq "ARRAY" ) {
             foreach my $h ( @{$hints} ) {
-                if ( $h =~ m/^http:\/\// ) {
+                if ( $h =~ m/^https?:\/\// ) {
                     $h =~ s/\s+//g;
                     push @{ $self->{HINTS} }, $h;
                 }
                 else {
-                    $self->{LOGGER}->error( "HINTS \"" . $h . "\" must be of the form http://ADDRESS." );
+                    $self->{LOGGER}->error( "HINTS \"" . $h . "\" must be of the form http[s]://ADDRESS." );
                 }
             }
         }
         else {
-            if ( $hints =~ m/^http:\/\// ) {
+            if ( $hints =~ m/^https?:\/\// ) {
                 $hints =~ s/\s+//g;
                 push @{ $self->{HINTS} }, $hints;
             }
             else {
-                $self->{LOGGER}->error( "HINTS \"" . $hints . "\" must be of the form http://ADDRESS." );
+                $self->{LOGGER}->error( "HINTS \"" . $hints . "\" must be of the form http[s]://ADDRESS." );
             }
         }
     }
@@ -130,22 +130,22 @@ sub setURI {
     if ( defined $uri and $uri ) {
         if ( ref( $uri ) eq "ARRAY" ) {
             foreach my $u ( @{$uri} ) {
-                if ( $u =~ m/^http:\/\// ) {
+                if ( $u =~ m/^https?:\/\// ) {
                     $u =~ s/\s+//g;
                     push @{ $self->{LS_CONF} }, $u;
                 }
                 else {
-                    $self->{LOGGER}->error( "URI \"" . $u . "\" must be of the form http://ADDRESS." );
+                    $self->{LOGGER}->error( "URI \"" . $u . "\" must be of the form http[s]://ADDRESS." );
                 }
             }
         }
         else {
-            if ( $uri =~ m/^http:\/\// ) {
+            if ( $uri =~ m/^https?:\/\// ) {
                 $uri =~ s/\s+//g;
                 push @{ $self->{LS_CONF} }, $uri;
             }
             else {
-                $self->{LOGGER}->error( "URI \"" . $uri . "\" must be of the form http://ADDRESS." );
+                $self->{LOGGER}->error( "URI \"" . $uri . "\" must be of the form http[s]://ADDRESS." );
             }
         }
         $self->init();
@@ -168,22 +168,22 @@ sub setHints {
     if ( defined $hints and $hints ) {
         if ( ref( $hints ) eq "ARRAY" ) {
             foreach my $h ( @{$hints} ) {
-                if ( $h =~ m/^http:\/\// ) {
+                if ( $h =~ m/^https?:\/\// ) {
                     $h =~ s/\s+//g;
                     push @{ $self->{HINTS} }, $h;
                 }
                 else {
-                    $self->{LOGGER}->error( "Hints \"" . $h . "\" must be of the form http://ADDRESS." );
+                    $self->{LOGGER}->error( "Hints \"" . $h . "\" must be of the form http[s]://ADDRESS." );
                 }
             }
         }
         else {
-            if ( $hints =~ m/^http:\/\// ) {
+            if ( $hints =~ m/^https?:\/\// ) {
                 $hints =~ s/\s+//g;
                 push @{ $self->{HINTS} }, $hints;
             }
             else {
-                $self->{LOGGER}->error( "Hints \"" . $hints . "\" must be of the form http://ADDRESS." );
+                $self->{LOGGER}->error( "Hints \"" . $hints . "\" must be of the form http[s]://ADDRESS." );
             }
         }
         $self->init();
@@ -286,7 +286,7 @@ sub init {
                         my $value = extract( $a, 0 );
                         if ( $value ) {
                             my $value2 = $value;
-                            $value2 =~ s/^http:\/\///;
+                            $value2 =~ s/^https?:\/\///;
                             my ( $unt_host ) = $value2 =~ /^(.+):/;
                             my ( $ret, $duration, $ip ) = $ping->ping( $unt_host );
                             $temp2{$duration} = $value if ( ( $ret or $duration ) and ( not $temp{$value} ) );
@@ -415,6 +415,7 @@ sub createService {
     $service = $service . "      <psservice:service xmlns:psservice=\"http://ggf.org/ns/nmwg/tools/org/perfsonar/service/1.0/\">\n";
     $service = $service . "        <psservice:serviceName>" . $self->{CONF}->{"SERVICE_NAME"} . "</psservice:serviceName>\n" if exists $self->{CONF}->{"SERVICE_NAME"} and $self->{CONF}->{"SERVICE_NAME"};
     $service = $service . "        <psservice:accessPoint>" . $self->{CONF}->{"SERVICE_ACCESSPOINT"} . "</psservice:accessPoint>\n" if exists $self->{CONF}->{"SERVICE_ACCESSPOINT"} and $self->{CONF}->{"SERVICE_ACCESSPOINT"};
+    $service = $service . "        <psservice:serviceDomain>" . $self->{CONF}->{"SERVICE_DOMAIN"} . "</psservice:serviceDomain>\n" if exists $self->{CONF}->{"SERVICE_DOMAIN"} and $self->{CONF}->{"SERVICE_DOMAIN"};
     $service = $service . "        <psservice:serviceType>" . $self->{CONF}->{"SERVICE_TYPE"} . "</psservice:serviceType>\n" if exists $self->{CONF}->{"SERVICE_TYPE"} and $self->{CONF}->{"SERVICE_TYPE"};
     $service = $service . "        <psservice:serviceDescription>" . $self->{CONF}->{"SERVICE_DESCRIPTION"} . "</psservice:serviceDescription>\n" if exists $self->{CONF}->{"SERVICE_DESCRIPTION"} and $self->{CONF}->{"SERVICE_DESCRIPTION"};
     $service = $service . "      </psservice:service>\n";
@@ -618,13 +619,13 @@ sub __register {
 
         foreach my $ls ( @{ $self->{LS_ORDER} } ) {
             next unless exists $lsHash{$ls} and $lsHash{$ls};
-            my ( $host, $port, $endpoint ) = &perfSONAR_PS::Transport::splitURI( $ls );
+            my ( $host, $port, $endpoint, $scheme ) = &perfSONAR_PS::Transport::splitURI( $ls );
             unless ( $host and $port and $endpoint ) {
                 $self->{LOGGER}->error( "URI conversion error for LS \"" . $ls . "\"." );
                 next;
             }
 
-            my $sender = new perfSONAR_PS::Transport( $host, $port, $endpoint );
+            my $sender = new perfSONAR_PS::Transport( $host, $port, $endpoint, $scheme );
 
             unless ( $self->callLS( $sender, $doc->getValue() ) == 0 ) {
                 $self->{LOGGER}->error( "Unable to register data with LS \"" . $ls . "\"." );
@@ -665,13 +666,13 @@ sub sendDeregister {
 
     foreach my $ls ( @{ $self->{LS_ORDER} } ) {
         next unless exists $lsHash{$ls} and $lsHash{$ls};
-        my ( $host, $port, $endpoint ) = &perfSONAR_PS::Transport::splitURI( $ls );
+        my ( $host, $port, $endpoint, $scheme ) = &perfSONAR_PS::Transport::splitURI( $ls );
         unless ( $host and $port and $endpoint ) {
             $self->{LOGGER}->error( "URI conversion error for LS \"" . $ls . "\"." );
             next;
         }
 
-        my $sender = new perfSONAR_PS::Transport( $host, $port, $endpoint );
+        my $sender = new perfSONAR_PS::Transport( $host, $port, $endpoint, $scheme );
 
         unless ( $self->callLS( $sender, $doc->getValue() ) == 0 ) {
             $self->{LOGGER}->error( "Unable to de-register data with LS \"" . $ls . "\"." );
@@ -712,13 +713,13 @@ sub sendKeepalive {
     my $success = 0;
     foreach my $ls ( @{ $self->{LS_ORDER} } ) {
         next unless exists $lsHash{$ls} and $lsHash{$ls};
-        my ( $host, $port, $endpoint ) = &perfSONAR_PS::Transport::splitURI( $ls );
+        my ( $host, $port, $endpoint, $scheme ) = &perfSONAR_PS::Transport::splitURI( $ls );
         unless ( $host and $port and $endpoint ) {
             $self->{LOGGER}->error( "URI conversion error for LS \"" . $ls . "\"." );
             next;
         }
 
-        my $sender = new perfSONAR_PS::Transport( $host, $port, $endpoint );
+        my $sender = new perfSONAR_PS::Transport( $host, $port, $endpoint, $scheme );
 
         unless ( $self->callLS( $sender, $doc->getValue() ) == 0 ) {
             $self->{LOGGER}->error( "Unable to keepalive data with LS \"" . $ls . "\"." );
@@ -753,13 +754,13 @@ sub sendKey {
         }
     }
 
-    my ( $host, $port, $endpoint ) = &perfSONAR_PS::Transport::splitURI( $self->{LS} );
+    my ( $host, $port, $endpoint, $scheme ) = &perfSONAR_PS::Transport::splitURI( $self->{LS} );
     unless ( $host and $port and $endpoint ) {
         $self->{LOGGER}->error( "URI conversion error." );
         return -1;
     }
 
-    my $sender = new perfSONAR_PS::Transport( $host, $port, $endpoint );
+    my $sender = new perfSONAR_PS::Transport( $host, $port, $endpoint, $scheme );
     my $doc = perfSONAR_PS::XML::Document->new();
     startMessage( $doc, "message." . genuid(), q{}, "LSKeyRequest", q{}, { perfsonar => "http://ggf.org/ns/nmwg/tools/org/perfsonar/1.0/", psservice => "http://ggf.org/ns/nmwg/tools/org/perfsonar/service/1.0/" } );
 
@@ -795,7 +796,7 @@ sub query {
         }
     }
 
-    my ( $host, $port, $endpoint ) = &perfSONAR_PS::Transport::splitURI( $self->{LS} );
+    my ( $host, $port, $endpoint, $scheme ) = &perfSONAR_PS::Transport::splitURI( $self->{LS} );
     unless ( $host and $port and $endpoint ) {
         $self->{LOGGER}->error( "URI conversion error." );
         return -1;
@@ -818,7 +819,7 @@ sub query {
     }
     $request .= "</nmwg:message>\n";
 
-    my ( $status, $res ) = consultArchive( $host, $port, $endpoint, $request );
+    my ( $status, $res ) = consultArchive( $host, $port, $endpoint, $scheme, $request );
     if ( $status != 0 ) {
         my $msg = "Error consulting LS: $res";
         $self->{LOGGER}->error( $msg );
@@ -977,7 +978,7 @@ Bugs, feature requests, and improvements can be directed here:
 
 =head1 VERSION
 
-$Id: Remote.pm 4320 2010-08-03 19:39:50Z alake $
+$Id: Remote.pm 4019 2010-04-07 17:40:37Z aaron $
 
 =head1 AUTHOR
 

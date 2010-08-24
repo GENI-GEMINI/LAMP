@@ -64,7 +64,7 @@ if ( -f $gLSFile and $hLSMapFile and $hLSFile ) {
                 next unless $h eq $hls2[0];
                 my @services = split( /,/, $hls2[1] );
                 foreach my $s ( @services ) {
-                    next unless $s =~ m/^http:\/\//;
+                    next unless $s =~ m/^https?:\/\//;
                     push @service_list, { NAME => $s };
                 }
                 last;

@@ -81,12 +81,13 @@ our %opts = ();
 our $help_needed;
 
 my $ok = GetOptions(
-    'debug'      => \$DEBUGFLAG,
-    'server=s'   => \$opts{HOST},
-    'port=s'     => \$opts{PORT},
-    'endpoint=s' => \$opts{ENDPOINT},
-    'filter=s'   => \$opts{FILTER},
-    'help'       => \$help_needed
+    'debug'         => \$DEBUGFLAG,
+    'server=s'      => \$opts{HOST},
+    'port=s'        => \$opts{PORT},
+    'endpoint=s'    => \$opts{ENDPOINT},
+    'scheme=s'      => \$opts{SCHEME},
+    'filter=s'      => \$opts{FILTER},
+    'help'          => \$help_needed
 );
 
 if ( not $ok or $help_needed ) {
@@ -103,10 +104,11 @@ my $logger = get_logger( "perfSONAR_PS" );
 my $host     = q{};
 my $port     = q{};
 my $endpoint = q{};
+my $scheme   = q{};
 my $filter   = '/';
 my $file     = q{};
 if ( scalar @ARGV == 2 ) {
-    ( $host, $port, $endpoint ) = &perfSONAR_PS::Transport::splitURI( $ARGV[0] );
+    ( $host, $port, $endpoint, $scheme ) = &perfSONAR_PS::Transport::splitURI( $ARGV[0] );
 
     unless ( $host and $port and $endpoint ) {
         print_help();
@@ -134,6 +136,9 @@ if ( defined $opts{PORT} ) {
 if ( defined $opts{ENDPOINT} ) {
     $endpoint = $opts{ENDPOINT};
 }
+if ( defined $opts{SCHEME} ) {
+    $endpoint = $opts{SCHEME};
+}
 if ( defined $opts{FILTER} ) {
     $filter = $opts{FILTER};
 }
@@ -144,7 +149,7 @@ unless ( $host and $port and $endpoint ) {
 }
 
 # start a transport agent
-my $sender = new perfSONAR_PS::Transport( $host, $port, $endpoint );
+my $sender = new perfSONAR_PS::Transport( $host, $port, $endpoint, $scheme );
 
 # Read the source XML file
 my $xml = readXML( $file );
@@ -203,7 +208,7 @@ Print a help message
 
 sub print_help {
     print "$PROGRAM_NAME: sends an xml file to the server on specified port.\n";
-    print "    ./client.pl [--server=xxx.yyy.zzz --port=n --endpoint=ENDPOINT] [URI] FILENAME\n";
+    print "    ./client.pl [--server=xxx.yyy.zzz --port=n --endpoint=ENDPOINT --scheme=SCHEME] [URI] FILENAME\n";
     return;
 }
 

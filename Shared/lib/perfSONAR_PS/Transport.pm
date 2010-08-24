@@ -5,7 +5,7 @@ use warnings;
 
 our $VERSION = 3.1;
 
-use fields 'CONTACT_HOST', 'CONTACT_PORT', 'CONTACT_ENDPOINT', 'NETLOGGER';
+use fields 'CONTACT_HOST', 'CONTACT_PORT', 'CONTACT_ENDPOINT', 'CONTACT_SCHEME', 'NETLOGGER';
 
 =head1 NAME
 
@@ -32,16 +32,17 @@ use perfSONAR_PS::Messages;
 use perfSONAR_PS::Utils::NetLogger;
 
 
-=head2 =head2 new($package, $contactHost, $contactPort, $contactEndPoint)
+=head2 =head2 new($package, $contactHost, $contactPort, $contactEndPoint, $contactScheme)
 
-The 'contactHost', 'contactPort', and 'contactEndPoint' set the values that are
-used to send information to a remote host.  All values can be left blank and
-set via the various set functions.
+The 'contactHost', 'contactPort', 'contactEndPoint' and '$contactScheme' set 
+the values that are used to send information to a remote host.  All values
+can be left blank and set via the various set functions. The contactScheme will
+default to http if left undefined.
 
 =cut
 
 sub new {
-    my ( $package, $contactHost, $contactPort, $contactEndPoint ) = @_;
+    my ( $package, $contactHost, $contactPort, $contactEndPoint, $contactScheme ) = @_;
 
     my $self = fields::new( $package );
 
@@ -54,7 +55,17 @@ sub new {
     if ( defined $contactEndPoint and $contactEndPoint ) {
         $self->{"CONTACT_ENDPOINT"} = $contactEndPoint;
     }
-
+    if ( defined $contactScheme and $contactScheme ) {
+        $self->{CONTACT_SCHEME} = $contactScheme;
+    }
+    
+    #
+    # This is necessary so that we standardize use of Net:SSL by
+    # LWP::UserAgent. Otherwise if we use the SSL daemon it would
+    # default to IO::Socket::SSL. (Another PITA to figure out.)
+    # 
+    require Net::SSL;
+    
     return $self;
 }
 
@@ -96,6 +107,25 @@ sub setContactPort {
     return;
 }
 
+=head2 setContactScheme($self, $contactScheme)  
+
+(Re-)Sets the value for the 'contactScheme' variable.  The contact scheme 
+is the protocol used to connect to the remote host, usually http or https.
+
+=cut
+
+sub setContactScheme {
+    my ( $self, $contactScheme ) = @_;
+    my $logger = get_logger( "perfSONAR_PS::Transport" );
+    if ( defined $contactScheme and $contactScheme ) {
+        $self->{CONTACT_SCHEME} = $contactScheme;
+    }
+    else {
+        $logger->error( "Missing argument." );
+    }
+    return;
+}
+
 =head2 splitURI($uri)
 
 Splits the contents of a URI into host, port, and endpoint.
@@ -108,11 +138,13 @@ sub splitURI {
     my $host     = undef;
     my $port     = undef;
     my $endpoint = undef;
+    my $scheme   = undef;
     my $secure   = 0;
 
     # lop off the protocol, then split everthing up by :'s
-    $secure++ if $uri =~ m/^https:\/\//;
-    $uri =~ s/^https?:\/\///;
+    $secure++ if $uri =~ m/^https?:\/\//;
+    $uri =~ s/^(https?):\/\///;
+    $scheme = $1;
     my @chunk = split( /:/, $uri );
     my $len = $#chunk;
 
@@ -170,24 +202,26 @@ sub splitURI {
         }
     }
 
-    $logger->debug( "Found host: " . $host . " port: " . $port . " endpoint: " . $endpoint );
-    return ( $host, $port, $endpoint );
+    $logger->debug( "Found host: " . $host . " port: " . $port . " endpoint: " . $endpoint . " scheme " . $scheme );
+    return ( $host, $port, $endpoint, $scheme );
 }
 
-=head2 getHttpURI($host, $port, $endpoint)
+=head2 getSchemeURI($host, $port, $endpoint)
 
 Creates a URI from a host, port, and endpoint
+XXX: Changing name so we fail hard.
 
 =cut
 
-sub getHttpURI {
-    my ( $host, $port, $endpoint ) = @_;
+sub getSchemeURI {
+    my ( $host, $port, $endpoint, $scheme ) = @_;
     my $logger = get_logger( "perfSONAR_PS::Transport" );
+    $scheme = "http" unless $scheme;
     $endpoint = "/" . $endpoint if ( $endpoint =~ /^[^\/]/ );
     if ( $host =~ /:/ ) {
         $host = "[" . $host . "]";
     }
-    my $uri = 'http://' . $host . ':' . $port . $endpoint;
+    my $uri = $scheme . '://' . $host . ':' . $port . $endpoint;
     $logger->debug( "Created URI: $uri" );
     return $uri;
 }
@@ -221,21 +255,23 @@ that message. If not, it is filled with "".
 
 sub sendReceive {
     my ( $self, $envelope, $timeout, $error ) = @_;
-
+    
     # XXX 3/17 - JZ
     #    Should be configurable.
     $timeout = 30 unless $timeout;
     my $logger       = get_logger( "perfSONAR_PS::Transport" );
     $self->{NETLOGGER} = get_logger( "NetLogger" );
     my $method_uri   = "http://ggf.org/ns/nmwg/base/2.0/message/";
-    my $httpEndpoint = &getHttpURI( $self->{CONTACT_HOST}, $self->{CONTACT_PORT}, $self->{CONTACT_ENDPOINT} );
+    my $httpEndpoint = &getSchemeURI( $self->{CONTACT_HOST}, $self->{CONTACT_PORT}, $self->{CONTACT_ENDPOINT}, $self->{CONTACT_SCHEME} );
     my $userAgent    = LWP::UserAgent->new( 'timeout' => ( $timeout * 1000 ) );
-
+    
     $logger->debug( "Sending information to \"" . $httpEndpoint . "\": $envelope" );
     my $msg = perfSONAR_PS::Utils::NetLogger::format( "org.perfSONAR.Transport.sendReceive.start", { endpoint => $httpEndpoint, }  );
     $self->{NETLOGGER}->debug( $msg );
 
-
+    $logger->debug( "Doing SSL connection with CERT (" . $ENV{'HTTPS_CERT_FILE'} . ") " . 
+            "and KEY (" . $ENV{'HTTPS_KEY_FILE'} . ")" ) if $self->{CONTACT_SCHEME} eq "https";
+    
     my $sendSoap = HTTP::Request->new( 'POST', $httpEndpoint, new HTTP::Headers, $envelope );
     $sendSoap->header( 'SOAPAction' => $method_uri );
     $sendSoap->content_type( 'text/xml' );

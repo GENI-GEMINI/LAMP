@@ -100,6 +100,7 @@ sub handleEvent {
             data              => 1,
             rawRequest        => 1,
             doOutputMetadata  => 1,
+            credentials       => 0,
         }
     );
 

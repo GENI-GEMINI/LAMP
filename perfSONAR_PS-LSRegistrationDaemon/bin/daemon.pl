@@ -51,18 +51,22 @@ my $DEBUGFLAG;
 my $HELP;
 my $RUNAS_USER;
 my $RUNAS_GROUP;
+my $SERVER_CERT;
+my $SERVER_KEYFILE;
 
 my ( $status, $res );
 
 $status = GetOptions(
-    'config=s'  => \$CONFIG_FILE,
-    'output=s'  => \$LOGOUTPUT,
-    'logger=s'  => \$LOGGER_CONF,
-    'pidfile=s' => \$PIDFILE,
-    'verbose'   => \$DEBUGFLAG,
-    'user=s'    => \$RUNAS_USER,
-    'group=s'   => \$RUNAS_GROUP,
-    'help'      => \$HELP
+    'config=s'          => \$CONFIG_FILE,
+    'output=s'          => \$LOGOUTPUT,
+    'logger=s'          => \$LOGGER_CONF,
+    'pidfile=s'         => \$PIDFILE,
+    'verbose'           => \$DEBUGFLAG,
+    'user=s'            => \$RUNAS_USER,
+    'group=s'           => \$RUNAS_GROUP,
+    'ssl-servercert'    => \$SERVER_CERT,
+    'ssl-serverkeyfile' => \$SERVER_KEYFILE,
+    'help'              => \$HELP
 );
 
 if ( not $CONFIG_FILE ) {
@@ -87,6 +91,29 @@ if ( $status != 0 ) {
 }
 
 my $fileHandle = $res;
+
+unless ( $SERVER_CERT ) {
+    if ( exists $conf{"ssl_server_cert_file"} and $conf{"ssl_server_cert_file"} ) {
+        $SERVER_CERT = $conf{"ssl_server_cert_file"};
+    }
+    else {
+        $SERVER_CERT = $confdir . "/certs/server-cert.pem";
+    }
+}
+    
+unless ( $SERVER_KEYFILE ) {
+    if ( exists $conf{"ssl_server_key_file"} and $conf{"ssl_server_key_file"} ) {
+        $SERVER_KEYFILE = $conf{"ssl_server_key_file"};
+    }
+    else {
+        $SERVER_KEYFILE = $confdir . "/certs/server-key.pem";
+    }
+}
+
+# We might need to talk to other SSL services.
+# Crypt::SSLeay (under LWP::UserAgent) will look for these.
+$ENV{'HTTPS_CERT_FILE'} = $SERVER_CERT if $SERVER_CERT and -e $SERVER_CERT;
+$ENV{'HTTPS_KEY_FILE'}  = $SERVER_KEYFILE if $SERVER_KEYFILE and -e $SERVER_KEYFILE;
 
 # Check if the daemon should run as a specific user/group and then switch to
 # that user/group.

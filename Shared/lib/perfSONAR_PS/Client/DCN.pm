@@ -831,12 +831,12 @@ sub queryTS {
         return;
     }
 
-    my ( $host, $port, $endpoint ) = perfSONAR_PS::Transport::splitURI( $parameters->{topology} );
+    my ( $host, $port, $endpoint, $scheme ) = perfSONAR_PS::Transport::splitURI( $parameters->{topology} );
     unless ( $host and $port and $endpoint ) {
         $self->{LOGGER}->error( "Topology URI: \"" . $parameters->{topology} . "\" is malformed." );
         return;
     }
-    my $sender = new perfSONAR_PS::Transport( $host, $port, $endpoint );
+    my $sender = new perfSONAR_PS::Transport( $host, $port, $endpoint, $scheme );
     unless ( $sender ) {
         $self->{LOGGER}->error( "TS could not be contaced." );
         return;

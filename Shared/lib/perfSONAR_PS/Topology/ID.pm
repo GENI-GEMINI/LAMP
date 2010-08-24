@@ -86,14 +86,17 @@ sub idIsFQ {
         return 1;
     }
     elsif ( $type eq "path" or $type eq "network" ) {
-        if ( $#fields == 3 ) {
-            ( $new_type, $value ) = split( "=", $fields[3] );
-
-            return -1 if ( $new_type ne $type or not defined $value );
-
-            return 1;
-        }
-        elsif ( $#fields == 4 ) {
+        #
+        # GENI: Everything must be inside a domain.
+        #
+        #if ( $#fields == 3 ) {
+        #    ( $new_type, $value ) = split( "=", $fields[3] );
+        # 
+        #    return -1 if ( $new_type ne $type or not defined $value );
+        #
+        #    return 1;
+        #}
+        if ( $#fields == 4 ) {
             ( $new_type, $value ) = split( "=", $fields[3] );
 
             return -1 if ( $new_type ne "domain" or not defined $value );

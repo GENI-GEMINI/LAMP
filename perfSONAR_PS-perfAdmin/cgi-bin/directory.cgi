@@ -107,7 +107,7 @@ if ( -d $base ) {
             my $viewFlag = 0;
             foreach my $c ( @content ) {
                 my @daemon = split( /\|/, $c );
-                if ( $daemon[0] =~ m/^http:\/\// ) {
+                if ( $daemon[0] =~ m/^https?:\/\// ) {
                     push @temp, { DAEMON => $daemon[0], NAME => $daemon[1], TYPE => $daemon[2], DESC => $daemon[3], COUNT1 => $counter1, COUNT2 => $counter2, VIEW => 1 };
                     $viewFlag++;
                 }

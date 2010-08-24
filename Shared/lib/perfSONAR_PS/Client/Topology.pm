@@ -185,14 +185,14 @@ sub xQuery {
 
     ( $status, $request ) = buildQueryRequest( $xquery );
 
-    my ( $host, $port, $endpoint ) = &perfSONAR_PS::Transport::splitURI( $self->{URI_STRING} );
+    my ( $host, $port, $endpoint, $scheme ) = &perfSONAR_PS::Transport::splitURI( $self->{URI_STRING} );
     if ( not defined $host and not defined $port and not defined $endpoint ) {
         my $msg = "Specified argument is not a URI";
         $self->{LOGGER}->error( $msg );
         return ( -1, $msg );
     }
 
-    ( $status, $res ) = consultArchive( $host, $port, $endpoint, $request );
+    ( $status, $res ) = consultArchive( $host, $port, $endpoint, $scheme, $request );
     if ( $status != 0 ) {
         my $msg = "Error consulting archive: $res";
         $self->{LOGGER}->error( $msg );
@@ -244,14 +244,14 @@ sub getAll {
 
     my $request = buildQueryRequest( q{} );
 
-    my ( $host, $port, $endpoint ) = &perfSONAR_PS::Transport::splitURI( $self->{URI_STRING} );
+    my ( $host, $port, $endpoint, $scheme ) = &perfSONAR_PS::Transport::splitURI( $self->{URI_STRING} );
     if ( not defined $host and not defined $port and not defined $endpoint ) {
         my $msg = "Specified argument is not a URI";
         $self->{LOGGER}->error( $msg );
         return ( -1, $msg );
     }
 
-    ( $status, $res ) = consultArchive( $host, $port, $endpoint, $request );
+    ( $status, $res ) = consultArchive( $host, $port, $endpoint, $scheme, $request );
     if ( $status != 0 ) {
         my $msg = "Error consulting archive: $res";
         $self->{LOGGER}->error( $msg );
@@ -301,14 +301,14 @@ sub changeTopology {
 
     $self->{LOGGER}->debug( "Change Request: " . $request );
 
-    my ( $host, $port, $endpoint ) = &perfSONAR_PS::Transport::splitURI( $self->{URI_STRING} );
+    my ( $host, $port, $endpoint, $scheme ) = &perfSONAR_PS::Transport::splitURI( $self->{URI_STRING} );
     if ( not defined $host and not defined $port and not defined $endpoint ) {
         my $msg = "Specified argument is not a URI";
         $self->{LOGGER}->error( $msg );
         return ( -1, $msg );
     }
 
-    ( $status, $res ) = consultArchive( $host, $port, $endpoint, $request );
+    ( $status, $res ) = consultArchive( $host, $port, $endpoint, $scheme, $request );
     if ( $status != 0 ) {
         my $msg = "Error consulting archive: $res";
         $self->{LOGGER}->error( $msg );

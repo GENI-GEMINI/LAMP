@@ -27,7 +27,11 @@ use XML::LibXML;
 use English qw( -no_match_vars );
 
 use base 'Exporter';
-our @EXPORT = qw( readXML defaultMergeMetadata countRefs genuid extract reMap consultArchive find findvalue escapeString unescapeString makeEnvelope mapNamespaces mergeConfig mergeHash mergeNodes_general );
+our @EXPORT = qw( readXML defaultMergeMetadata countRefs genuid extract reMap consultArchive find findvalue escapeString unescapeString makeEnvelope mapNamespaces mergeConfig mergeHash mergeNodes_general parseToDOM duplicateHash );
+
+my %noremap_ns = (
+    "http://www.w3.org/2000/09/xmldsig#" => 1,
+);
 
 =head2 find($node, $query, $return_first)
 
@@ -750,31 +754,33 @@ sub reMap {
         }
     }
     elsif ( $node->namespaceURI() ) {
-        if ( exists $requestNamespaces->{ $node->namespaceURI() } and $requestNamespaces->{ $node->namespaceURI() } ) {
-            $logger->debug( "Setting namespace \"" . $node->namespaceURI() . "\" with prefix \"" . $requestNamespaces->{ $node->namespaceURI() } . "\"." );
-            $node->setNamespace( $node->namespaceURI(), $requestNamespaces->{ $node->namespaceURI() }, 1 );
-        }
-        else {
-            my $new_prefix;
-            foreach my $ns ( keys %{$namespaces} ) {
-                if ( $namespaces->{$ns} eq $node->namespaceURI() ) {
-                    $new_prefix = $ns;
-                    last;
+        unless ( exists $noremap_ns{ $node->namespaceURI() } ) {
+            if ( exists $requestNamespaces->{ $node->namespaceURI() } and $requestNamespaces->{ $node->namespaceURI() } ) {
+                $logger->debug( "Setting namespace \"" . $node->namespaceURI() . "\" with prefix \"" . $requestNamespaces->{ $node->namespaceURI() } . "\"." );
+                $node->setNamespace( $node->namespaceURI(), $requestNamespaces->{ $node->namespaceURI() }, 1 );
+            }
+            else {
+                my $new_prefix;
+                foreach my $ns ( keys %{$namespaces} ) {
+                    if ( $namespaces->{$ns} eq $node->namespaceURI() ) {
+                        $new_prefix = $ns;
+                        last;
+                    }
                 }
+
+                if ( not $new_prefix ) {
+                    $logger->debug( "No prefix for namespace " . $node->namespaceURI() . ": generating one" );
+                    do {
+                        $new_prefix = "pref" . ( genuid() % 1000 );
+                    } while ( exists $namespaces->{$new_prefix} );
+                }
+
+                $node->setNamespace( $node->namespaceURI(), $new_prefix, 1 );
+                $node->ownerDocument->getDocumentElement->setNamespace( $node->namespaceURI(), $new_prefix, 0 ) if $set_owner_prefix;
+
+                $logger->debug( "Re-mapping namespace \"" . $node->namespaceURI() . "\" to prefix \"" . $new_prefix . "\"." );
+                $requestNamespaces->{ $node->namespaceURI() } = $new_prefix;
             }
-
-            if ( not $new_prefix ) {
-                $logger->debug( "No prefix for namespace " . $node->namespaceURI() . ": generating one" );
-                do {
-                    $new_prefix = "pref" . ( genuid() % 1000 );
-                } while ( exists $namespaces->{$new_prefix} );
-            }
-
-            $node->setNamespace( $node->namespaceURI(), $new_prefix, 1 );
-            $node->ownerDocument->getDocumentElement->setNamespace( $node->namespaceURI(), $new_prefix, 0 ) if $set_owner_prefix;
-
-            $logger->debug( "Re-mapping namespace \"" . $node->namespaceURI() . "\" to prefix \"" . $new_prefix . "\"." );
-            $requestNamespaces->{ $node->namespaceURI() } = $new_prefix;
         }
     }
     if ( $node->hasChildNodes() ) {
@@ -785,7 +791,7 @@ sub reMap {
     return $requestNamespaces;
 }
 
-=head2 consultArchive($host, $port, $endpoint, $request)
+=head2 consultArchive($host, $port, $endpoint, $scheme, $request)
 
 This function can be used to easily consult a measurement archive. It's a thin
 wrapper around the sendReceive function in the perfSONAR_PS::Transport module.
@@ -800,11 +806,16 @@ success and an error message on failure.
 =cut
 
 sub consultArchive {
-    my ( $host, $port, $endpoint, $request, $timeout ) = @_;
+    my ( $host, $port, $endpoint, $scheme, $request, $timeout ) = @_;
     my $logger = get_logger( "perfSONAR_PS::Common" );
-
+    
+    if ( not defined $request ) {
+        $logger->error( "Common.consultArchive changed signature! Error: request is undef. " );
+        exit( -1 );
+    }
+    
     # start a transport agent
-    my $sender = new perfSONAR_PS::Transport( $host, $port, $endpoint );
+    my $sender = new perfSONAR_PS::Transport( $host, $port, $endpoint, $scheme );
 
     my $envelope = makeEnvelope( $request );
     my $error;
@@ -904,8 +915,10 @@ sub mergeConfig {
     my $logger = get_logger( "perfSONAR_PS::Common" );
 
     my %elements = (
-        port     => 1,
-        endpoint => 1
+        port        => 1,
+        endpoint    => 1,
+        scheduler   => 1,
+        service     => 1
     );
 
     my $ret_config = mergeHash( $base, $specific, \%elements );
@@ -1034,6 +1047,27 @@ sub convertISO {
         $logger->error( "Missing argument." );
         return "N/A";
     }
+}
+
+=head2 parseToDOM($string)
+
+Given an XML document as string, returns parsed dom.
+
+=cut
+
+sub parseToDOM {
+    my $string = shift;
+    my $logger = get_logger( "perfSONAR_PS::Common" );
+    
+    my $parser = XML::LibXML->new();
+    my $dom    = q{};
+    eval { $dom = $parser->parse_string( $string ); };
+    if ( $EVAL_ERROR ) {
+        my $msg = escapeString( "Parse failed: " . $EVAL_ERROR );
+        $logger->error( $msg );
+        return -1;
+    }
+    return $dom;
 }
 
 1;

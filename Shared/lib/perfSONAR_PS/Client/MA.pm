@@ -87,12 +87,12 @@ sub callMA {
         $self->{ALIVE} = 1;
     }
 
-    my ( $host, $port, $endpoint ) = perfSONAR_PS::Transport::splitURI( $self->{INSTANCE} );
+    my ( $host, $port, $endpoint, $scheme ) = perfSONAR_PS::Transport::splitURI( $self->{INSTANCE} );
     unless ( defined $host and defined $port and defined $endpoint ) {
         return;
     }
 
-    my $sender = new perfSONAR_PS::Transport( $host, $port, $endpoint );
+    my $sender = new perfSONAR_PS::Transport( $host, $port, $endpoint, $scheme );
     unless ( $sender ) {
         $self->{LOGGER}->error( "LS could not be contaced." );
         return;

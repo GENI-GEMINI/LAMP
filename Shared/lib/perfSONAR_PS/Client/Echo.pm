@@ -126,7 +126,7 @@ sub ping {
         return ( -1, "Invalid URI specified \"\"" );
     }
 
-    my ( $host, $port, $endpoint ) = &perfSONAR_PS::Transport::splitURI( $self->{URI} );
+    my ( $host, $port, $endpoint, $scheme ) = &perfSONAR_PS::Transport::splitURI( $self->{URI} );
     if ( not defined $host and not defined $port and not defined $endpoint ) {
         return ( -1, "Invalid URI specified \"" . $self->{URI} . "\"" );
     }
@@ -135,7 +135,7 @@ sub ping {
     $self->createEchoRequest( $doc );
 
     my $timeout = 15;
-    my ( $status, $res ) = consultArchive( $host, $port, $endpoint, $doc->getValue(), $timeout );
+    my ( $status, $res ) = consultArchive( $host, $port, $endpoint, $scheme, $doc->getValue(), $timeout );
     if ( $status != 0 ) {
         my $msg = "Error contacting service \"" . $self->{URI} . "\" : $res";
         $logger->error( $msg );

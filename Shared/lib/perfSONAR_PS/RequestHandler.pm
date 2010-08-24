@@ -5,7 +5,7 @@ use warnings;
 
 our $VERSION = 0.09;
 
-use fields 'EV_HANDLERS', 'EV_REGEX_HANDLERS', 'MSG_HANDLERS', 'FULL_MSG_HANDLERS', 'MERGE_HANDLERS', 'EVENTEQUIVALENCECHECKERS', 'LOGGER';
+use fields 'EV_HANDLERS', 'EV_REGEX_HANDLERS', 'MSG_HANDLERS', 'FULL_MSG_HANDLERS', 'MERGE_HANDLERS', 'CREDENTIAL_HANDLERS', 'EVENTEQUIVALENCECHECKERS', 'LOGGER';
 
 =head1 NAME
 
@@ -52,7 +52,9 @@ sub new {
 
     #$self->{EVENTEQUIVALENCECHECKER} = perfSONAR_PS::EventTypeEquivalenceHandler->new();
     $self->{EVENTEQUIVALENCECHECKERS} = ();
-
+    
+    $self->{CREDENTIAL_HANDLERS}   = ();
+    
     return $self;
 }
 
@@ -327,9 +329,21 @@ sub __handleEvent {
             data              => { type => SCALARREF },
             rawRequest        => {},
             doOutputMetadata  => { type => SCALARREF },
+            credentials       => { type => ARRAYREF },
         }
     );
-
+    
+    #
+    # TODO: For now we assume that if the service didn't register a credential 
+    #   handler it's because it doesn't recognizes credentials yet. The long
+    #   term solution is to have the new parameter added to all services'
+    #   handleEvent (and also the handleMessages, etc)
+    #
+    if (not $self->{CREDENTIAL_HANDLERS}) {
+        delete $args->{'credentials'};
+    }
+    
+    
     my $messageType = $args->{"messageType"};
     my $eventType   = $args->{"eventType"};
 
@@ -597,8 +611,9 @@ sub handleMessage {
 
     if ( $doOutputMetadata ) {
         foreach my $request ( @{$chains} ) {
-            my $filter_chain = $request->{"filter"};
-            my $merge_chain  = $request->{"merge"};
+            my $filter_chain    = $request->{"filter"};
+            my $merge_chain     = $request->{"merge"};
+            my $credential_mds  = $request->{"credential"};
 
             foreach my $md ( @{$merge_chain} ) {
                 unless ( exists $outputMetadata{ $md->getAttribute( "id" ) } ) {
@@ -615,14 +630,23 @@ sub handleMessage {
                     }
                 }
             }
+            
+            foreach my $md ( @{$credential_mds} ) {
+                unless ( exists $outputMetadata{ $md->getAttribute( "id" ) } ) {
+                    $ret_message->addExistingXMLElement( $md );
+                    $outputMetadata{ $md->getAttribute( "id" ) } = 1;
+                }
+            }
         }
     }
 
     foreach my $request ( @{$chains} ) {
 
-        my $filter_chain = $request->{"filter"};
-        my $merge_chain  = $request->{"merge"};
-        my $data         = $request->{"data"};
+        
+        my $filter_chain    = $request->{"filter"};
+        my $merge_chain     = $request->{"merge"};
+        my $credential_mds  = $request->{"credential"};
+        my $data            = $request->{"data"};
 
         my $eventType;
         my $found_event_type = 0;
@@ -665,7 +689,9 @@ sub handleMessage {
                 }
             }
         }
-
+        
+        my $credentials = $self->parseCredentialMetadatas( $credential_mds );
+        
         my $errorEventType;
         my $errorMessage;
         my $doOutputMetadata = 1;
@@ -687,7 +713,8 @@ sub handleMessage {
                         filterChain       => $filter_chain,
                         data              => $data,
                         rawRequest        => $raw_request,
-                        doOutputMetadata  => \$doOutputMetadata
+                        doOutputMetadata  => \$doOutputMetadata,
+                        credentials       => $credentials
                     }
                 );
             }
@@ -805,13 +832,14 @@ sub parseChains {
             $found_pair = 1;
 
             try {
-                my ( $mergeChain, $filterChain ) = $self->parseChain( $messageType, \%message_metadata, $d_idRef );
+                my ( $mergeChain, $filterChain, $credentialMds ) = $self->parseChain( $messageType, \%message_metadata, $d_idRef );
 
                 my %mdChains = ();
 
-                $mdChains{"filter"} = $filterChain;
-                $mdChains{"merge"}  = $mergeChain;
-                $mdChains{"data"}   = $d;
+                $mdChains{"filter"}     = $filterChain;
+                $mdChains{"merge"}      = $mergeChain;
+                $mdChains{"credential"} = $credentialMds;
+                $mdChains{"data"}       = $d;
 
                 push @chains, \%mdChains;
             }
@@ -956,13 +984,17 @@ sub parseChain {
     my ( $self, $message_type, $message_metadata, $baseId ) = @_;
 
     my $chained_mds;
-    my @filter_mds = ();
-    my %used_mds   = ();
+    my @filter_mds      = ();
+    my @credential_mds  = ();
+    my %used_mds        = ();
 
     my $nextMdId = $baseId;
 
     # populate the arrays with the filters/chain metadata
+    
     do {
+# GFR: I know, this is ugly as hell.
+MDLOOP:{  
         if ( not exists $message_metadata->{$nextMdId} ) {
             throw perfSONAR_PS::Error_compat( "error.common.merge", "Metadata $nextMdId does not exist" );
         }
@@ -974,6 +1006,25 @@ sub parseChain {
         $used_mds{$nextMdId} = 1;
 
         my $m = $message_metadata->{$nextMdId};
+        
+        my $eventTypes = find( $m, "./*[local-name()='eventType' and namespace-uri()='http://ggf.org/ns/nmwg/base/2.0/']", 0 );
+        foreach my $e ( $eventTypes->get_nodelist ) {
+            if ( $self->isCredentialEventType( extract( $e, 1 ) ) ) {
+                if (scalar $eventTypes->get_nodelist > 1) {
+                    throw perfSONAR_PS::Error_compat( "error.common.merge", "Credential metadata has multiple eventTypes" );
+                }
+                
+                my $subject_idRef = findvalue( $m, './*[local-name()=\'subject\']/@metadataIdRef' );
+                
+                if ( not $subject_idRef) {
+                    throw perfSONAR_PS::Error_compat( "error.common.merge", "Merged metadata from chain beginning at $baseId has credential metadata without subject metadataIdRef" );
+                }
+                
+                push @credential_mds, $m;
+                $nextMdId = $subject_idRef;
+                next MDLOOP;
+            }
+        }
 
         my $md_idRef = $m->getAttribute( "metadataIdRef" );
 
@@ -997,20 +1048,87 @@ sub parseChain {
             $subject_idRef = $curr_subject_idRef unless $subject_idRef;
 
             if ( $curr_subject_idRef ne $subject_idRef ) {
-                thrown perfSONAR_PS::Error_compat( "error.common.merge", "Merged metadata from chain beginning at $baseId have multiple, inconsistent subject metadataIdRefs" );
+                throw perfSONAR_PS::Error_compat( "error.common.merge", "Merged metadata from chain beginning at $baseId have multiple, inconsistent subject metadataIdRefs" );
             }
         }
 
         if ( $subject_idRef ) {
+            
             unshift @filter_mds, $mergeChain_currMd;
             $nextMdId = $subject_idRef;
         }
         else {
             $chained_mds = $mergeChain_currMd;
         }
+    } # ENDS MDLOOP
     } while ( not defined $chained_mds );
 
-    return ( $chained_mds, \@filter_mds );
+    return ( $chained_mds, \@filter_mds, \@credential_mds );
+}
+
+=head2 isCredentialEventType($self, $eventType)
+
+TODO: Desc
+
+=cut
+
+sub isCredentialEventType {
+     my ( $self, $eventType ) = validateParamsPos( @_, 1, { type => SCALAR } );
+     
+     return exists $self->{CREDENTIAL_HANDLERS}->{$eventType}
+                and $self->{CREDENTIAL_HANDLERS}->{$eventType};
+}
+
+
+=head2 registerCredentialHandler($self, $eventType, $sub)
+
+TODO: Desc
+
+$sub is a method for parsing a Certificate as string. It must return a
+blessed object (the Certificate) or an error string in case of errors.
+
+=cut
+
+sub registerCredentialHandler {
+    my ( $self, $eventType, $sub ) = validateParamsPos( @_, 1, { type => SCALAR }, { type => CODEREF } );
+
+    $self->{LOGGER}->debug( "Adding credential handler for $eventType" );
+
+    if ( exists $self->{CREDENTIAL_HANDLERS}->{$eventType} and $self->{CREDENTIAL_HANDLERS}->{$eventType} ) {
+        $self->{LOGGER}->error( "There already exists a handler for credentials of type $eventType" );
+        return -1;
+    }
+
+    $self->{CREDENTIAL_HANDLERS}->{$eventType} = $sub;
+
+    return 0;
+}
+
+=head2 parseCredentialMetadatas ($self, \@credential_mds)
+
+TODO: Desc 
+
+=cut
+
+sub parseCredentialMetadatas {
+    my ( $self, $credential_mds ) = @_;
+    
+    my @credentials = ();
+    
+    for my $md (@{$credential_mds}) {
+        my $eventType = findvalue( $md, "./*[local-name()='eventType' and namespace-uri()='http://ggf.org/ns/nmwg/base/2.0/']", 0 );
+        my $subject = find( $md, "./*[local-name()='subject' and namespace-uri()='http://ggf.org/ns/nmwg/base/2.0/']", 1 );
+        
+        my $credential = &{ $self->{CREDENTIAL_HANDLERS}->{$eventType} }(@{$subject->nonBlankChildNodes()}[0]->toString());
+        
+        if (not ref $credential) {
+            throw perfSONAR_PS::Error_compat( "error.common.credential", "Error processing credential type $eventType: $credential" );
+        }
+        
+        push @credentials, $credential;
+    }
+    
+    return \@credentials;
 }
 
 1;

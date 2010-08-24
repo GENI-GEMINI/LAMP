@@ -101,6 +101,22 @@ sub service_name {
     return $retval;
 }
 
+=head2 service_domain ($self)
+
+For now returns the configured domain or undef if not configured.
+
+=cut
+
+sub service_domain {
+    my ( $self ) = @_;
+
+    if ( exists $self->{CONF}->{site_domain} and $self->{CONF}->{site_domain} ) {
+        return $self->{CONF}->{site_domain};
+    }
+
+    return undef;
+}
+
 =head2 service_name ($self)
 
 This internal function generates the human-readable description of the service
@@ -112,8 +128,8 @@ function.
 sub service_desc {
     my ( $self ) = @_;
 
-    if ( $self->{CONF}->{service_name} ) {
-        return $self->{CONF}->{service_name};
+    if ( $self->{CONF}->{service_description} ) {
+        return $self->{CONF}->{service_description};
     }
 
     my $retval = $self->type();
@@ -190,6 +206,7 @@ sub register {
     $service{name}                = $self->service_name();
     $service{description}         = $self->service_desc();
     $service{type}                = $self->service_type();
+    $service{domain}              = $self->service_domain();
     $service{addresses}           = $addresses;
 
     my $ev       = $self->event_type();

@@ -44,11 +44,11 @@ sub new {
     $self->{ALIVE}  = 0;
     $self->{LOGGER} = get_logger( "perfSONAR_PS::Client::LS" );
     if ( exists $parameters->{"instance"} and $parameters->{"instance"} ) {
-        if ( $parameters->{"instance"} =~ m/^http:\/\// ) {
+        if ( $parameters->{"instance"} =~ m/^https?:\/\// ) {
             $self->{INSTANCE} = $parameters->{"instance"};
         }
         else {
-            $self->{LOGGER}->error( "Instance must be of the form http://ADDRESS." );
+            $self->{LOGGER}->error( "Instance must be of the form http[s]://ADDRESS." );
         }
     }
     return $self;
@@ -65,11 +65,11 @@ sub setInstance {
     my $parameters = validateParams( @args, { instance => 1 } );
 
     $self->{ALIVE} = 0;
-    if ( $parameters->{"instance"} =~ m/^http:\/\// ) {
+    if ( $parameters->{"instance"} =~ m/^https?:\/\// ) {
         $self->{INSTANCE} = $parameters->{"instance"};
     }
     else {
-        $self->{LOGGER}->error( "Instance must be of the form http://ADDRESS." );
+        $self->{LOGGER}->error( "Instance must be of the form http[s]://ADDRESS." );
     }
     return;
 }
@@ -99,12 +99,12 @@ sub callLS {
         $self->{ALIVE} = 1;
     }
 
-    my ( $host, $port, $endpoint ) = perfSONAR_PS::Transport::splitURI( $self->{INSTANCE} );
+    my ( $host, $port, $endpoint, $scheme ) = perfSONAR_PS::Transport::splitURI( $self->{INSTANCE} );
     unless ( $host and $port and $endpoint ) {
         return;
     }
 
-    my $sender = new perfSONAR_PS::Transport( $host, $port, $endpoint );
+    my $sender = new perfSONAR_PS::Transport( $host, $port, $endpoint, $scheme );
     unless ( $sender ) {
         $self->{LOGGER}->error( "LS \"" . $self->{INSTANCE} . "\" could not be contaced." );
         return;
@@ -543,7 +543,7 @@ sub queryRequestLS {
     return \%result;
 }
 
-=head2 createService($self { accessPoint, serviceName, serviceType, serviceDescription })
+=head2 createService($self { accessPoint, serviceName, serviceType, serviceDescription, serviceDomain })
 
 Construct the service metadata given the values commonly used to make this
 xml block (access point, service name, type, and description.  Access point is
@@ -560,6 +560,7 @@ sub createService {
     if ( exists $parameters->{service}->{nonPerfSONARService} and $parameters->{service}->{nonPerfSONARService} ) {
         $service .= "      <nmtb:service xmlns:nmtb=\"http://ogf.org/schema/network/base/20070828/\">\n";
         $service .= "        <nmtb:name>" . $parameters->{service}->{name} . "</nmtb:name>\n" if exists $parameters->{service}->{name};
+        $service .= "        <nmtb:domain>" . $parameters->{service}->{domain} . "</nmtb:domain>\n" if exists $parameters->{service}->{domain} and $parameters->{service}->{domain};
         $service .= "        <nmtb:type>" . $parameters->{service}->{type} . "</nmtb:type>\n" if exists $parameters->{service}->{type};
         $service .= "        <nmtb:description>" . $parameters->{service}->{description} . "</nmtb:description>\n" if exists $parameters->{service}->{description};
         if ( exists $parameters->{service}->{addresses} and $parameters->{service}->{addresses} and $#{ $parameters->{service}->{addresses} } > -1 ) {
@@ -573,6 +574,7 @@ sub createService {
         $service = $service . "      <psservice:service xmlns:psservice=\"http://ggf.org/ns/nmwg/tools/org/perfsonar/service/1.0/\">\n";
         $service = $service . "        <psservice:serviceName>" . $parameters->{service}->{serviceName} . "</psservice:serviceName>\n" if exists $parameters->{service}->{serviceName};
         $service = $service . "        <psservice:accessPoint>" . $parameters->{service}->{accessPoint} . "</psservice:accessPoint>\n" if exists $parameters->{service}->{accessPoint};
+        $service = $service . "        <psservice:serviceDomain>" . $parameters->{service}->{serviceDomain} . "</psservice:serviceDomain>\n" if exists $parameters->{service}->{serviceDomain} and $parameters->{service}->{serviceDomain};
         $service = $service . "        <psservice:serviceType>" . $parameters->{service}->{serviceType} . "</psservice:serviceType>\n" if exists $parameters->{service}->{serviceType};
         $service = $service . "        <psservice:serviceDescription>" . $parameters->{service}->{serviceDescription} . "</psservice:serviceDescription>\n" if exists $parameters->{service}->{serviceDescription};
         $service = $service . "      </psservice:service>\n";
@@ -827,7 +829,7 @@ Bugs, feature requests, and improvements can be directed here:
 
 =head1 VERSION
 
-$Id: LS.pm 4320 2010-08-03 19:39:50Z alake $
+$Id: LS.pm 2826 2009-06-15 19:16:57Z zurawski $
 
 =head1 AUTHOR
 

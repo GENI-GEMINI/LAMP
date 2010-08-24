@@ -179,11 +179,26 @@ sub wait_all {
             $self->{LOGGER}->debug( "Spawning new request: " . $request->{url} );
 
             my $request_start_time = time;
-
+            
+            my $tls_ctx = { cache => 1, sslv2 => 1 };
+            if ( $request->{url} =~ /^https/ ) {
+                # Create the tls_ctx that will be used by AnyEvent::Handle
+                if ( exists $ENV{ "HTTPS_CERT_FILE" } and $ENV{ "HTTPS_CERT_FILE" } ) {
+                    $tls_ctx->{'cert_file'} = $ENV{ "HTTPS_CERT_FILE" };
+                }
+                if ( exists $ENV{ "HTTPS_KEY_FILE" } and $ENV{ "HTTPS_KEY_FILE" } ) {
+                    $tls_ctx->{'key_file'} = $ENV{ "HTTPS_KEY_FILE" };
+                }
+                if ( exists $ENV{ "HTTPS_CERT_PASSWORD" } and $ENV{ "HTTPS_CERT_PASSWORD" } ) {
+                    $tls_ctx->{'cert_password'} = $ENV{ "HTTPS_CERT_PASSWORD" };
+                }
+            }
+            
             my $req = http_request
                 POST    => $request->{url},
                 body    => $request->{request},
                 timeout => $timeout,
+                tls_ctx => $tls_ctx,
                 headers => { "SOAPAction" => $method_uri, "Content-Type" => "text/xml" },
                 sub {
                 my ( $body, $header ) = @_;

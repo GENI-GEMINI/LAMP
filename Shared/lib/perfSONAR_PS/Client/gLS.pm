@@ -58,23 +58,23 @@ sub new {
         if ( ref( $parameters->{"url"} ) eq "ARRAY" ) {
             my $complete = 0;
             foreach my $url ( @{ $parameters->{"url"} } ) {
-                if ( $url =~ m/^http:\/\// ) {
+                if ( $url =~ m/^https?:\/\// ) {
                     push @{ $self->{HINTS} }, $url;
                     $complete++;
                 }
                 else {
-                    $self->{LOGGER}->error( "URL must be of the form http://ADDRESS." );
+                    $self->{LOGGER}->error( "URL must be of the form http[s]://ADDRESS." );
                 }
             }
             $self->init() if $complete;
         }
         else {
-            if ( $parameters->{"url"} =~ m/^http:\/\// ) {
+            if ( $parameters->{"url"} =~ m/^https?:\/\// ) {
                 push @{ $self->{HINTS} }, $parameters->{"url"};
                 $self->init();
             }
             else {
-                $self->{LOGGER}->error( "URL must be of the form http://ADDRESS." );
+                $self->{LOGGER}->error( "URL must be of the form http[s]://ADDRESS." );
             }
         }
     }
@@ -113,23 +113,23 @@ sub addURL {
     if ( ref( $parameters->{"url"} ) eq "ARRAY" ) {
         my $complete = 0;
         foreach my $url ( @{ $parameters->{"url"} } ) {
-            if ( $url =~ m/^http:\/\// ) {
+            if ( $url =~ m/^https?:\/\// ) {
                 push @{ $self->{HINTS} }, $url;
                 $complete++;
             }
             else {
-                $self->{LOGGER}->error( "URL must be of the form http://ADDRESS." );
+                $self->{LOGGER}->error( "URL must be of the form http[s]://ADDRESS." );
             }
         }
         $self->init() if $complete;
     }
     else {
-        if ( $parameters->{"url"} =~ m/^http:\/\// ) {
+        if ( $parameters->{"url"} =~ m/^https?:\/\// ) {
             push @{ $self->{HINTS} }, $parameters->{"url"};
             $self->init();
         }
         else {
-            $self->{LOGGER}->error( "URL must be of the form http://ADDRESS." );
+            $self->{LOGGER}->error( "URL must be of the form http[s]://ADDRESS." );
         }
     }
     return 0;
@@ -277,7 +277,7 @@ sub addRoot {
         }
     );
 
-    if ( $parameters->{root} =~ m/^http:\/\// ) {
+    if ( $parameters->{root} =~ m/^https?:\/\// ) {
         unless ( $self->verifyURL( { url => $parameters->{root} } ) == -1 ) {
             if ( exists $parameters->{priority} and $parameters->{priority} ) {
                 unshift @{ $self->{ROOTS} }, $parameters->{root};
@@ -288,7 +288,7 @@ sub addRoot {
         }
     }
     else {
-        $self->{LOGGER}->error( "Root must be of the form http://ADDRESS." );
+        $self->{LOGGER}->error( "Root must be of the form http[s]://ADDRESS." );
     }
     return -1;
 }
@@ -303,13 +303,13 @@ sub verifyURL {
     my ( $self, @args ) = @_;
     my $parameters = validateParams( @args, { url => { type => Params::Validate::SCALAR } } );
 
-    if ( $parameters->{url} =~ m/^http:\/\// ) {
+    if ( $parameters->{url} =~ m/^https?:\/\// ) {
         my $echo_service = perfSONAR_PS::Client::Echo->new( $parameters->{url} );
         my ( $status, $res ) = $echo_service->ping();
         return 0 if $status > -1;
     }
     else {
-        $self->{LOGGER}->error( "URL must be of the form http://ADDRESS." );
+        $self->{LOGGER}->error( "URL must be of the form http[s]://ADDRESS." );
     }
     return -1;
 }
@@ -596,7 +596,7 @@ sub getLSDiscoverRaw {
     );
 
     my $ls = perfSONAR_PS::Client::LS->new();
-    if ( exists $parameters->{ls} and $parameters->{ls} =~ m/^http:\/\// ) {
+    if ( exists $parameters->{ls} and $parameters->{ls} =~ m/^https?:\/\// ) {
         unless ( $self->verifyURL( { url => $parameters->{ls} } ) == 0 ) {
             $self->{LOGGER}->error( "Supplied server \"" . $parameters->{ls} . "\" could not be contacted." );
             return;
@@ -639,7 +639,7 @@ sub getLSQueryRaw {
 
     my $result;
     my $ls = perfSONAR_PS::Client::LS->new();
-    if ( $parameters->{ls} =~ m/^http:\/\// ) {
+    if ( $parameters->{ls} =~ m/^https?:\/\// ) {
         unless ( $self->verifyURL( { url => $parameters->{ls} } ) == 0 ) {
             $self->{LOGGER}->error( "Supplied server \"" . $parameters->{ls} . "\" could not be contacted." );
             return;
@@ -647,7 +647,7 @@ sub getLSQueryRaw {
         $ls->setInstance( { instance => $parameters->{ls} } );
     }
     else {
-        $self->{LOGGER}->error( "LS myst be of the form http://ADDRESS." );
+        $self->{LOGGER}->error( "LS myst be of the form http[s]://ADDRESS." );
         return $result;
     }
 
@@ -712,7 +712,7 @@ sub getLSDiscovery {
     );
 
     my $ls = perfSONAR_PS::Client::LS->new();
-    if ( exists $parameters->{ls} and $parameters->{ls} =~ m/^http:\/\// ) {
+    if ( exists $parameters->{ls} and $parameters->{ls} =~ m/^https?:\/\// ) {
         unless ( $self->verifyURL( { url => $parameters->{ls} } ) == 0 ) {
             $self->{LOGGER}->error( "Supplied server \"" . $parameters->{ls} . "\" could not be contacted." );
             return;
@@ -812,7 +812,7 @@ sub getLSQueryLocation {
 
     my @service = ();
     my $ls      = perfSONAR_PS::Client::LS->new();
-    if ( $parameters->{ls} =~ m/^http:\/\// ) {
+    if ( $parameters->{ls} =~ m/^https?:\/\// ) {
         unless ( $self->verifyURL( { url => $parameters->{ls} } ) == 0 ) {
             $self->{LOGGER}->error( "Supplied server \"" . $parameters->{ls} . "\" could not be contacted." );
             return;
@@ -820,7 +820,7 @@ sub getLSQueryLocation {
         $ls->setInstance( { instance => $parameters->{ls} } );
     }
     else {
-        $self->{LOGGER}->error( "LS myst be of the form http://ADDRESS." );
+        $self->{LOGGER}->error( "LS myst be of the form http[s]://ADDRESS." );
         return \@service;
     }
 
@@ -907,7 +907,7 @@ sub getLSQueryContent {
 
     my @metadata = ();
     my $ls       = perfSONAR_PS::Client::LS->new();
-    if ( $parameters->{ls} =~ m/^http:\/\// ) {
+    if ( $parameters->{ls} =~ m/^https?:\/\// ) {
         unless ( $self->verifyURL( { url => $parameters->{ls} } ) == 0 ) {
             $self->{LOGGER}->error( "Supplied server \"" . $parameters->{ls} . "\" could not be contacted." );
             return;
@@ -915,7 +915,7 @@ sub getLSQueryContent {
         $ls->setInstance( { instance => $parameters->{ls} } );
     }
     else {
-        $self->{LOGGER}->error( "LS myst be of the form http://ADDRESS." );
+        $self->{LOGGER}->error( "LS myst be of the form http[s]://ADDRESS." );
         return \@metadata;
     }
 
@@ -1003,7 +1003,7 @@ sub getLSLocation {
 
     my @service = ();
     my $ls      = perfSONAR_PS::Client::LS->new();
-    if ( exists $parameters->{ls} and $parameters->{ls} =~ m/^http:\/\// ) {
+    if ( exists $parameters->{ls} and $parameters->{ls} =~ m/^https?:\/\// ) {
         unless ( $self->verifyURL( { url => $parameters->{ls} } ) == 0 ) {
             $self->{LOGGER}->error( "Supplied server \"" . $parameters->{ls} . "\" could not be contacted." );
             return;
@@ -1080,7 +1080,7 @@ sub getLSContent {
 
     my @metadata = ();
     my $ls       = perfSONAR_PS::Client::LS->new();
-    if ( exists $parameters->{ls} and $parameters->{ls} =~ m/^http:\/\// ) {
+    if ( exists $parameters->{ls} and $parameters->{ls} =~ m/^https?:\/\// ) {
         unless ( $self->verifyURL( { url => $parameters->{ls} } ) == 0 ) {
             $self->{LOGGER}->error( "Supplied server \"" . $parameters->{ls} . "\" could not be contacted." );
             return;

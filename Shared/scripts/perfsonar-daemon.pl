@@ -30,6 +30,8 @@ use Cwd;
 use Config::General;
 use Module::Load;
 use HTTP::Daemon;
+use HTTP::Daemon::SSL qw( debug3 );
+use Net::SSLeay;
 use English '-no_match_vars';
 use Carp;
 
@@ -76,7 +78,9 @@ my %ns = (
     nmtopo        => "http://ogf.org/schema/network/topology/base/20070828/",
     nmtb          => "http://ogf.org/schema/network/topology/base/20070828/",
     sonet         => "http://ogf.org/schema/network/topology/sonet/20070828/",
-    transport     => "http://ogf.org/schema/network/topology/transport/20070828/"
+    transport     => "http://ogf.org/schema/network/topology/transport/20070828/",
+    unis          => "http://ogf.org/schema/network/topology/unis/20100528/",
+    xmldsig       => "http://www.w3.org/2000/09/xmldsig#",
 );
 
 use perfSONAR_PS::Common;
@@ -86,8 +90,9 @@ use perfSONAR_PS::RequestHandler;
 use perfSONAR_PS::Error_compat qw/:try/;
 use perfSONAR_PS::Error;
 use perfSONAR_PS::Services::Echo;
-
+        
 my %child_pids = ();
+my %valid_peers = ();
 
 $SIG{CHLD} = \&REAPER;
 $SIG{PIPE} = 'IGNORE';
@@ -107,17 +112,36 @@ my $LOGOUTPUT   = q{};
 my $RUNAS_USER  = q{};
 my $RUNAS_GROUP = q{};
 
+# This allows easy debugging of requests/maintenance/registration
+my $SINGLE_THREADFLAG   = q{};
+# SSL Configuration Options
+my $SSLFLAG             = q{};
+my $SERVER_CERT         = q{};
+my $SERVER_KEYFILE      = q{};
+my $CABUNDLE_FILE       = q{};
+my $CRLBUNDLE_FILE      = q{};
+# Peers identified by URN to accept SSL connection from, 
+# see etc/valid_peers for example
+my $VALID_PEERS_FILE    = q{};
+
 my $status = GetOptions(
-    'verbose'   => \$DEBUGFLAG,
-    'help'      => \$HELP,
-    'config=s'  => \$CONFIG_FILE,
-    'piddir=s'  => \$PIDDIR,
-    'pidfile=s' => \$PIDFILE,
-    'logger=s'  => \$LOGGER_CONF,
-    'user=s'    => \$RUNAS_USER,
-    'group=s'   => \$RUNAS_GROUP,
-    'output=s'  => \$LOGOUTPUT,
-    'noclean'   => \$CLEANFLAG
+    'verbose'       => \$DEBUGFLAG,
+    'help'          => \$HELP,
+    'config=s'      => \$CONFIG_FILE,
+    'piddir=s'      => \$PIDDIR,
+    'pidfile=s'     => \$PIDFILE,
+    'logger=s'      => \$LOGGER_CONF,
+    'user=s'        => \$RUNAS_USER,
+    'group=s'       => \$RUNAS_GROUP,
+    'output=s'      => \$LOGOUTPUT,
+    'noclean'       => \$CLEANFLAG,
+    'singlethread=s'=> \$SINGLE_THREADFLAG,
+    'ssl-enable'        => \$SSLFLAG,
+    'ssl-servercert'    => \$SERVER_CERT,
+    'ssl-serverkeyfile' => \$SERVER_KEYFILE,
+    'ssl-ca'            => \$CABUNDLE_FILE,
+    'ssl-crls'          => \$CRLBUNDLE_FILE,
+    'ssl-validpeers=s'  => \$VALID_PEERS_FILE,
 );
 
 if ( not $status or $HELP ) {
@@ -160,6 +184,73 @@ unless ( $PIDFILE ) {
 }
 
 my $pidfile = lockPIDFile( $PIDDIR, $PIDFILE );
+
+if ( $SSLFLAG ) {
+    unless ( $CABUNDLE_FILE ) {
+        if ( exists $conf{"ssl_ca_file"} and $conf{"ssl_ca_file"} ) {
+            $CABUNDLE_FILE = $conf{"ssl_ca_file"};
+        }
+        else {
+            $CABUNDLE_FILE = $confdir . "/certs/my-ca.pem";
+        }
+    }
+    
+    unless ( $CRLBUNDLE_FILE ) {
+        if ( exists $conf{"ssl_crls_file"} and $conf{"ssl_crls_file"} ) {
+            $CRLBUNDLE_FILE = $conf{"ssl_crls_file"};
+        }
+        else {
+            $CRLBUNDLE_FILE = $confdir . "/certs/my-crl.pem";
+        }
+    }
+    
+    unless ( $VALID_PEERS_FILE ) {
+        if ( exists $conf{"ssl_valid_peers_file"} and $conf{"ssl_valid_peers_file"} ) {
+            $VALID_PEERS_FILE = $conf{"ssl_valid_peers_file"};
+        }
+        else {
+            $VALID_PEERS_FILE = $confdir . "/valid_peers";
+        }
+    }
+    
+    if ( -e $VALID_PEERS_FILE ) {
+        open( VALIDPEERS, "< $VALID_PEERS_FILE" ) or die $!;
+        for my $line ( <VALIDPEERS> ) {
+            $line =~ s/^\s+//;
+            $line =~ s/\s+$//;
+            next if !$line or $line =~ /^#/;
+            
+            $valid_peers{$line} = 1;
+        }
+        close( VALIDPEERS ) or die $!;
+    } 
+    else {
+        $valid_peers{'*'} = 1;
+    }
+}
+
+unless ( $SERVER_CERT ) {
+    if ( exists $conf{"ssl_server_cert_file"} and $conf{"ssl_server_cert_file"} ) {
+        $SERVER_CERT = $conf{"ssl_server_cert_file"};
+    }
+    else {
+        $SERVER_CERT = $confdir . "/certs/server-cert.pem";
+    }
+}
+    
+unless ( $SERVER_KEYFILE ) {
+    if ( exists $conf{"ssl_server_key_file"} and $conf{"ssl_server_key_file"} ) {
+        $SERVER_KEYFILE = $conf{"ssl_server_key_file"};
+    }
+    else {
+        $SERVER_KEYFILE = $confdir . "/certs/server-key.pem";
+    }
+}
+
+# We might need to talk to other SSL services.
+# Crypt::SSLeay (under LWP::UserAgent) will look for these.
+$ENV{'HTTPS_CERT_FILE'} = $SERVER_CERT if $SERVER_CERT and -e $SERVER_CERT;
+$ENV{'HTTPS_KEY_FILE'}  = $SERVER_KEYFILE if $SERVER_KEYFILE and -e $SERVER_KEYFILE;
 
 # Check if the daemon should run as a specific user/group and then switch to
 # that user/group.
@@ -252,8 +343,8 @@ my %modules_loaded  = ();
 my %port_configs    = ();
 my %service_configs = ();
 
-unless ( exists $conf{"port"} and $conf{"port"} ) {
-    $logger->error( "No ports defined" );
+unless ( ( exists $conf{"port"} and $conf{"port"} ) or ( exists $conf{"scheduler"} and $conf{"scheduler"} ) ) {
+    $logger->error( "No ports nor scheduler defined" );
     exit( -1 );
 }
 
@@ -270,17 +361,39 @@ foreach my $port ( keys %{ $conf{"port"} } ) {
         $logger->warn( "No endpoints specified for port $port" );
         next;
     }
-
-    my $listener = HTTP::Daemon->new(
-        LocalPort => $port,
-        ReuseAddr => 1,
-        Timeout   => $port_conf{"reaper_interval"},
-    );
-    if ( not defined $listener != 0 ) {
-        $logger->error( "Couldn't start daemon on port $port" );
-        exit( -1 );
+    
+    my $listener;
+    unless ( $SINGLE_THREADFLAG eq "registration-client" ) { 
+        if ( $SSLFLAG ) {
+            $listener= HTTP::Daemon::SSL->new(
+                LocalPort       => $port,
+                ReuseAddr       => 1,
+                Timeout         => $port_conf{"reaper_interval"},
+                SSL_server      => 1,
+                SSL_cert_file   => $SERVER_CERT,
+                SSL_key_file    => $SERVER_KEYFILE,
+                SSL_ca_file     => $CABUNDLE_FILE,
+                #SSL_check_crl   => 1,
+                #SSL_crl_file    => $CRLBUNDLE_FILE,
+                SSL_verify_mode => 0x03,
+            );
+            
+            $logger->debug( "Accepting connections from the following peers: " . join(",", keys %valid_peers) );
+        }
+        else {
+            $listener = HTTP::Daemon->new(
+                LocalPort => $port,
+                ReuseAddr => 1,
+                Timeout   => $port_conf{"reaper_interval"},
+            );
+        } 
+        
+        if ( not defined $listener != 0 ) {
+            $logger->error( "Couldn't start daemon on port $port" );
+            exit( -1 );
+        }
     }
-
+    
     $listeners{$port}                     = $listener;
     $handlers{$port}                      = ();
     $services{$port}                      = ();
@@ -372,8 +485,76 @@ foreach my $port ( keys %{ $conf{"port"} } ) {
     }
 }
 
-if ( scalar( keys %listeners ) == 0 ) {
-    $logger->error( "No ports enabled" );
+# Each item is a ref to ($service, $service_conf)
+my @sched_services = ();
+
+if ( exists $conf{"scheduler"} and $conf{"scheduler"} ) {
+    my @services = ();
+    
+    if ( ref $conf{"scheduler"}->{"service"} eq "ARRAY" ) {
+        @services = @{ $conf{"scheduler"}->{"service"} };
+    }
+    else {
+        push @services, $conf{"scheduler"}->{"service"};
+    }
+    
+    foreach my $sched_service ( @services ) {
+        my %service_conf = %{ mergeConfig( \%conf, $sched_service ) };
+
+        next if exists $service_conf{"disabled"} and $service_conf{"disabled"} == 1;
+        
+        unless ( exists $service_conf{"module"} and $service_conf{"module"} ) {
+            $logger->error( "No module specified for scheduled service." );
+            exit( -1 );
+        }
+        
+        unless ( ref $service_conf{"module"} eq "" ) {
+            $logger->error( "Only one module supported per cheduled service." );
+            exit( -1 );
+        }
+        
+        my $module = $service_conf{"module"};
+        
+        unless ( exists $modules_loaded{$module} and $modules_loaded{$module} ) {
+            load $module;
+            $modules_loaded{$module} = 1;
+        }
+
+        my $service = $module->new( \%service_conf, undef, undef, $confdir );
+        
+        if ( exists $service_conf{"method"} and $service_conf{"method"} ) {
+            unless ( $service->can( $service_conf{"method"} ) ) {
+                $logger->error( "Module " . $module . " doesn't support method " . $service_conf{"method"} );
+                exit( -1 );
+            }
+        }
+        else {
+            unless ( $service->can( "run" ) ) {
+                $logger->error( "No method given for module " . $module . ", and 'run' not supported." );
+                exit( -1 );
+            }
+            $logger->warn( "No method given for module " . $module . ", using 'run'." );
+            $service_conf{"method"} = "run";
+        }
+        
+        if ( $service->init() != 0 ) {
+            $logger->error( "Failed to initialize module " . $module . " on scheduled service." );
+            exit( -1 );
+        }
+        
+        my @serv_conf_tuple = ($service, \%service_conf);
+        push @sched_services, \@serv_conf_tuple;
+    }
+}
+    
+if ( scalar( keys %listeners ) == 0 and scalar @sched_services == 0 ) {
+    $logger->error( "No ports enabled and no services scheduled" );
+    exit( -1 );
+    
+}
+
+if ( $SINGLE_THREADFLAG eq "listener" and scalar( keys %listeners ) > 1 ) {
+    $logger->error( "Single thread mode can only handle one port" );
     exit( -1 );
 }
 
@@ -408,6 +589,13 @@ $SIG{CHLD} = \&REAPER;
 $PROGRAM_NAME = "perfsonar-daemon.pl ($PROCESS_ID)";
 
 foreach my $port ( keys %listeners ) {
+    if ( $SINGLE_THREADFLAG ) {
+        last unless ( $SINGLE_THREADFLAG eq "listener" );
+
+        psService( $listeners{$port}, $handlers{$port}, $services{$port}, $service_configs{$port} );
+        last;
+    } 
+     
     my $pid = fork();
     if ( $pid == 0 ) {
         %child_pids = ();
@@ -426,6 +614,14 @@ foreach my $port ( keys %listeners ) {
 }
 
 foreach my $maintenance_args ( @maintenance ) {
+    if ( $SINGLE_THREADFLAG ) {
+        last unless ( $SINGLE_THREADFLAG eq "maintenance" );
+
+        $PROGRAM_NAME .= " - Service Maintenance";
+        maintenance( $maintenance_args );
+        last;
+    }
+    
     my $maintenance_pid = fork();
     if ( $maintenance_pid == 0 ) {
         %child_pids = ();
@@ -442,6 +638,14 @@ foreach my $maintenance_args ( @maintenance ) {
 }
 
 foreach my $ls_args ( @ls_services ) {
+    if ( $SINGLE_THREADFLAG ) {
+        last unless ( $SINGLE_THREADFLAG =~ /registration/ );
+
+        $PROGRAM_NAME .= " - LS Registration (" . $ls_args->{"port"} . ":" . $ls_args->{"endpoint"} . ")";
+        registerLS( $ls_args );
+        last;
+    }
+    
     my $ls_pid = fork();
     if ( $ls_pid == 0 ) {
         %child_pids = ();
@@ -455,6 +659,33 @@ foreach my $ls_args ( @ls_services ) {
         exit( -1 );
     }
     $child_pids{$ls_pid} = q{};
+}
+
+foreach my $tuple ( @sched_services ) {
+    my ($service, $service_conf) = @{ $tuple };
+    
+    if ( $SINGLE_THREADFLAG ) {
+        last unless ( $SINGLE_THREADFLAG eq "scheduler" );
+
+        schedule( $service, $service_conf );
+        last;
+    } 
+     
+    my $pid = fork();
+    if ( $pid == 0 ) {
+        %child_pids = ();
+        $PROGRAM_NAME .= " - Scheduler (" . $service_conf->{"module"} . ")";
+        schedule( $service, $service_conf );
+        exit( 0 );
+    }
+    elsif ( $pid < 0 ) {
+        $logger->error( "Couldn't spawn scheduler child" );
+        killChildren();
+        exit( -1 );
+    }
+    else {
+        $child_pids{$pid} = q{};
+    }
 }
 
 unlockPIDFile( $pidfile );
@@ -475,13 +706,15 @@ responding to the request with an error.
 
 sub psService {
     my ( $listener, $handlers, $services, $service_config ) = @_;
-    my $max_worker_processes;
+    my $max_worker_processes = 0;
 
     $logger->debug( "Starting '" . $PROCESS_ID . "' as a service." );
-
-    $max_worker_processes = $service_config->{"max_worker_processes"};
-
+    
+    $max_worker_processes = $service_config->{"max_worker_processes"}
+            unless $SINGLE_THREADFLAG; # leave as 0 if --singlethread
+        
     while ( 1 ) {
+        
         if ( $max_worker_processes > 0 ) {
             while ( %child_pids and scalar( keys %child_pids ) >= $max_worker_processes ) {
                 $logger->debug( "Waiting for a slot to open" );
@@ -517,7 +750,12 @@ sub psService {
                 }
             }
         }
-
+        
+        if ( $SSLFLAG and $SINGLE_THREADFLAG ) {
+            # This might fix the weird bug between Socket::IO::SSL and DBXML
+            Net::SSLeay::SSLeay_add_ssl_algorithms();
+        }
+        
         my $handle = $listener->accept;
         if ( not defined $handle ) {
             my $msg = "Accept returned nothing, likely a timeout occurred or a child exited";
@@ -525,20 +763,56 @@ sub psService {
         }
         else {
             $logger->info( "Received incoming connection from:\t" . $handle->peerhost() );
-            my $pid = fork();
+            
+            my $pid = ( $SINGLE_THREADFLAG ) ? 0 : fork();
             if ( $pid == 0 ) {
                 %child_pids = ();
 
                 $PROGRAM_NAME .= " - " . $handle->peerhost();
-
+                
                 my $http_request = $handle->get_request;
                 unless ( $http_request ) {
                     my $msg = "No HTTP Request received from host:\t" . $handle->peerhost();
                     $logger->error( $msg );
                     $handle->close;
-                    exit( -1 );
+                    exit( -1 ) unless $SINGLE_THREADFLAG;
+                    
+                    next;
                 }
-
+                
+                if ( $SSLFLAG ) {
+                    # Verify that we have a valid peer. I thought of doing
+                    # this on the verify callback before, but that doesn't
+                    # give a very informative error to the user.
+                    
+                    delete $ENV{'GENIURN'};
+                    my @altnames = $handle->peer_certificate('subjectAltNames');
+                    while (@altnames)
+                    {
+                        my ($type, $name) = splice( @altnames, 0, 2 );
+        	        # type 6 is URI
+        	        if ( $type eq 6 ) {
+        	            if ( exists $valid_peers{'*'} or 
+        	                    exists $valid_peers{ $name } ) {
+        	                
+        	                # Set the GENI URN of the peer
+        	                $ENV{'GENIURN'} = $name;
+        	                last;   
+        	            }
+        	        }
+                    }
+                    
+                    if ( not exists $ENV{'GENIURN'} ) {
+                        # No valid URN found
+                        my $msg = "You do not have permission to access this server";
+                        my $request = perfSONAR_PS::Request->new( $handle, $http_request );
+                        $request->setResponse( getErrorResponseMessage( eventType => "error.common.policy", description => $msg ) );
+                        $request->finish();
+                        exit( 0 ) unless $SINGLE_THREADFLAG;
+                        next;
+                    }
+                }
+                
                 my $request = perfSONAR_PS::Request->new( $handle, $http_request );
                 if ( not exists $handlers->{ $request->getEndpoint() } ) {
                     my $msg = "Received message with has invalid endpoint: " . $request->getEndpoint();
@@ -549,7 +823,8 @@ sub psService {
                     $PROGRAM_NAME .= " - " . $request->getEndpoint();
                     handleRequest( $handlers->{ $request->getEndpoint() }, $request, $service_config->{"endpoint"}->{ $request->getEndpoint() } );
                 }
-                exit( 0 );
+                
+                exit( 0 ) unless $SINGLE_THREADFLAG;
             }
             elsif ( $pid < 0 ) {
                 $logger->error( "Error spawning child" );
@@ -683,6 +958,36 @@ sub maintenance {
             $logger->error( "Error returned: $error" ) if $loadStatus == -1;
         }
 
+        $logger->debug( "Sleeping for $sleep_time" );
+        sleep( $sleep_time );
+    }
+    return 0;
+}
+
+sub schedule {
+    my ( $service, $service_conf) = @_;
+    my $method     = q{};
+    my $sleep_time = q{};
+    my $error      = q{};
+    
+    if ( exists $service_conf->{"interval"} and $service_conf->{"interval"} ) {
+        $sleep_time = $service_conf->{"interval"};
+    } else {
+        $logger->warn( "No interval given for module " . $service_conf->{"module"} . ", defaulting to 1 hour." );
+        $sleep_time = 3600;
+    }
+    
+    $method = $service_conf->{"method"};
+    
+    while (1) {
+        my $loadStatus = 0;
+        eval { ($loadStatus, $error) = $service->$method(); };
+        if ( $EVAL_ERROR ) {
+            $logger->error( "Problem running scheduled method (" . $service_conf->{"module"} . "::" . $method . "): " . $EVAL_ERROR );
+        }
+
+        $logger->error( "Error returned: $error" ) if $loadStatus == -1;
+    
         $logger->debug( "Sleeping for $sleep_time" );
         sleep( $sleep_time );
     }

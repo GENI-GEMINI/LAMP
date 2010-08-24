@@ -281,6 +281,12 @@ sub init {
             $self->{CONF}->{"snmp"}->{"service_type"} = "MA";
             $self->{LOGGER}->warn( "Setting 'service_type' to 'MA'." );
         }
+        
+        unless ( ( exists $self->{CONF}->{"snmp"}->{"service_domain"} and $self->{CONF}->{"snmp"}->{"service_domain"} )
+             or not ( exists $self->{CONF}->{"service_domain"} and $self->{CONF}->{"service_domain"} ) )
+        {
+            $self->{CONF}->{"snmp"}->{"service_domain"} = $self->{CONF}->{"service_domain"};
+        }
     }
 
     unless ( exists $self->{CONF}->{"snmp"}->{"maintenance_interval"} ) {
@@ -784,6 +790,7 @@ sub registerLS {
         my %ls_conf = (
             SERVICE_TYPE        => $self->{CONF}->{"snmp"}->{"service_type"},
             SERVICE_NAME        => $self->{CONF}->{"snmp"}->{"service_name"},
+            SERVICE_DOMAIN      => $self->{CONF}->{"snmp"}->{"service_domain"},
             SERVICE_DESCRIPTION => $self->{CONF}->{"snmp"}->{"service_description"},
             SERVICE_ACCESSPOINT => $self->{CONF}->{"snmp"}->{"service_accesspoint"},
         );
