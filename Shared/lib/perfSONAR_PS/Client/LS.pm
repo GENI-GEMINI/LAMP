@@ -543,7 +543,7 @@ sub queryRequestLS {
     return \%result;
 }
 
-=head2 createService($self { accessPoint, serviceName, serviceType, serviceDescription, serviceDomain })
+=head2 createService($self { accessPoint, serviceName, serviceType, serviceDescription, serviceNode })
 
 Construct the service metadata given the values commonly used to make this
 xml block (access point, service name, type, and description.  Access point is
@@ -559,8 +559,8 @@ sub createService {
     my $service = "    <perfsonar:subject xmlns:perfsonar=\"http://ggf.org/ns/nmwg/tools/org/perfsonar/1.0/\" id=\"subject." . genuid() . "\">\n";
     if ( exists $parameters->{service}->{nonPerfSONARService} and $parameters->{service}->{nonPerfSONARService} ) {
         $service .= "      <nmtb:service xmlns:nmtb=\"http://ogf.org/schema/network/base/20070828/\">\n";
+        $service .= "        <nmtb:node>" . $parameters->{service}->{node} . "</nmtb:node>\n" if exists $parameters->{service}->{node} and $parameters->{service}->{node};
         $service .= "        <nmtb:name>" . $parameters->{service}->{name} . "</nmtb:name>\n" if exists $parameters->{service}->{name};
-        $service .= "        <nmtb:domain>" . $parameters->{service}->{domain} . "</nmtb:domain>\n" if exists $parameters->{service}->{domain} and $parameters->{service}->{domain};
         $service .= "        <nmtb:type>" . $parameters->{service}->{type} . "</nmtb:type>\n" if exists $parameters->{service}->{type};
         $service .= "        <nmtb:description>" . $parameters->{service}->{description} . "</nmtb:description>\n" if exists $parameters->{service}->{description};
         if ( exists $parameters->{service}->{addresses} and $parameters->{service}->{addresses} and $#{ $parameters->{service}->{addresses} } > -1 ) {
@@ -572,9 +572,9 @@ sub createService {
     }
     else {
         $service = $service . "      <psservice:service xmlns:psservice=\"http://ggf.org/ns/nmwg/tools/org/perfsonar/service/1.0/\">\n";
+        $service = $service . "        <psservice:serviceNode>" . $parameters->{service}->{serviceNode} . "</psservice:serviceNode>\n" if exists $parameters->{service}->{serviceNode} and $parameters->{service}->{serviceNode};
         $service = $service . "        <psservice:serviceName>" . $parameters->{service}->{serviceName} . "</psservice:serviceName>\n" if exists $parameters->{service}->{serviceName};
         $service = $service . "        <psservice:accessPoint>" . $parameters->{service}->{accessPoint} . "</psservice:accessPoint>\n" if exists $parameters->{service}->{accessPoint};
-        $service = $service . "        <psservice:serviceDomain>" . $parameters->{service}->{serviceDomain} . "</psservice:serviceDomain>\n" if exists $parameters->{service}->{serviceDomain} and $parameters->{service}->{serviceDomain};
         $service = $service . "        <psservice:serviceType>" . $parameters->{service}->{serviceType} . "</psservice:serviceType>\n" if exists $parameters->{service}->{serviceType};
         $service = $service . "        <psservice:serviceDescription>" . $parameters->{service}->{serviceDescription} . "</psservice:serviceDescription>\n" if exists $parameters->{service}->{serviceDescription};
         $service = $service . "      </psservice:service>\n";
