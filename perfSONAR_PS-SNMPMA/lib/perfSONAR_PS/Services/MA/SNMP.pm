@@ -51,6 +51,7 @@ use perfSONAR_PS::DB::RRD;
 use perfSONAR_PS::DB::SQL;
 use perfSONAR_PS::Utils::ParameterValidation;
 use perfSONAR_PS::Utils::NetLogger;
+use perfSONAR_PS::Topology::ID qw(idIsFQ);
 
 my %ma_namespaces = (
     nmwg      => "http://ggf.org/ns/nmwg/base/2.0/",
@@ -246,12 +247,14 @@ sub init {
         }
 
         if ( not $self->{CONF}->{"snmp"}->{"service_accesspoint"} ) {
-            unless ( $self->{CONF}->{external_address} ) {
-                $self->{LOGGER}->fatal( "With LS registration enabled, you need to specify either the service accessPoint for the service or the external_address" );
+            unless ( exists $self->{CONF}->{external_address} and $self->{CONF}->{external_address} ) {
+                $self->{LOGGER}->fatal( "This service requires a service_accesspoint or external_address to be set, exiting." );
                 return -1;
             }
-            $self->{LOGGER}->info( "Setting service access point to http://" . $self->{CONF}->{external_address} . ":" . $self->{PORT} . $self->{ENDPOINT} );
-            $self->{CONF}->{"snmp"}->{"service_accesspoint"} = "http://" . $self->{CONF}->{external_address} . ":" . $self->{PORT} . $self->{ENDPOINT};
+            $self->{CONF}->{default_scheme} = "http" unless exists $self->{CONF}->{default_scheme} and $self->{CONF}->{default_scheme};
+            
+            $self->{LOGGER}->debug( "Setting service access point to " . $self->{CONF}->{default_scheme} . "://" . $self->{CONF}->{external_address} . ":" . $self->{PORT} . $self->{ENDPOINT} );
+            $self->{CONF}->{"snmp"}->{"service_accesspoint"} = $self->{CONF}->{default_scheme} . "://" . $self->{CONF}->{external_address} . ":" . $self->{PORT} . $self->{ENDPOINT};
         }
 
         unless ( exists $self->{CONF}->{"snmp"}->{"service_description"}
@@ -282,10 +285,19 @@ sub init {
             $self->{LOGGER}->warn( "Setting 'service_type' to 'MA'." );
         }
         
-        unless ( ( exists $self->{CONF}->{"snmp"}->{"service_domain"} and $self->{CONF}->{"snmp"}->{"service_domain"} )
-             or not ( exists $self->{CONF}->{"service_domain"} and $self->{CONF}->{"service_domain"} ) )
-        {
-            $self->{CONF}->{"snmp"}->{"service_domain"} = $self->{CONF}->{"service_domain"};
+        
+        unless ( exists $self->{CONF}->{"snmp"}->{"service_node"} and $self->{CONF}->{"snmp"}->{"service_node"} ) {
+            unless ( exists $self->{CONF}->{"node_id"} and $self->{CONF}->{"node_id"} ) {
+                # XXX: For now we make this a hard fail since the rest of the GENI infrastructure will depend on it.
+                $self->{LOGGER}->fatal( "This service requires the service_node or node_id to be set, exiting." );
+                return -1;
+            }
+            $self->{CONF}->{"snmp"}->{"service_node"} = $self->{CONF}->{"node_id"};
+        }
+        
+        unless ( idIsFQ( $self->{CONF}->{"snmp"}->{"service_node"}, "node" ) ) {
+            $self->{LOGGER}->fatal( "service_node (or node_id) is not a fully-qualified UNIS node id, exiting." );
+            return -1;
         }
     }
 
@@ -788,9 +800,9 @@ sub registerLS {
 
     unless ( exists $self->{LS_CLIENT} and $self->{LS_CLIENT} ) {
         my %ls_conf = (
+            SERVICE_NODE        => $self->{CONF}->{"snmp"}->{"service_node"},
             SERVICE_TYPE        => $self->{CONF}->{"snmp"}->{"service_type"},
             SERVICE_NAME        => $self->{CONF}->{"snmp"}->{"service_name"},
-            SERVICE_DOMAIN      => $self->{CONF}->{"snmp"}->{"service_domain"},
             SERVICE_DESCRIPTION => $self->{CONF}->{"snmp"}->{"service_description"},
             SERVICE_ACCESSPOINT => $self->{CONF}->{"snmp"}->{"service_accesspoint"},
         );
