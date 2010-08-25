@@ -250,6 +250,10 @@ sub init {
     my %temp      = ();
     my $lsCounter = 0;
     foreach my $ls ( @{ $self->{LS_CONF} } ) {
+        # 08/25/2010:
+        #    GFR: Prevent multiple Echo requests to same LS.
+        next if $temp{$ls};
+        
         my $echo_service = perfSONAR_PS::Client::Echo->new( $ls );
         my ( $status, $res ) = $echo_service->ping();
         if ( $status > -1 ) {
@@ -285,6 +289,10 @@ sub init {
                     foreach my $a ( $ap->get_nodelist ) {
                         my $value = extract( $a, 0 );
                         if ( $value ) {
+                            # 08/25/2010:
+                            #    GFR: Prevent multiple Echo requests to same LS.
+                            next if $temp{$value};
+                            
                             my $value2 = $value;
                             $value2 =~ s/^https?:\/\///;
                             my ( $unt_host ) = $value2 =~ /^(.+):/;
