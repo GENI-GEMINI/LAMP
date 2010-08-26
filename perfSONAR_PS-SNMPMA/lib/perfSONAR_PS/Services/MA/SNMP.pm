@@ -836,7 +836,7 @@ sub registerLS {
         #   GFR: Services should register even if there's no data.
         #return -1;
         
-        @resultsString = ();
+        @resultsString = ('',);
     }
     
     $ls->registerStatic( \@resultsString );

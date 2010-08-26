@@ -491,7 +491,10 @@ sub registerStatic {
     }
 
     if ( exists $self->{FIRST} and $self->{FIRST} ) {
-        if ( $self->sendDeregister($self->getKey()) == 0 ) {
+        # 08/25/2010:
+        #   GFR: Seems like a bug, if the Key doesn't exist sendDeregister returns -1
+        #if ( $self->sendDeregister($self->getKey()) == 0 ) {
+        if ( $self->sendDeregister($self->getKey()) != 0 ) {
             $self->{LOGGER}->debug( "Nothing registered." );
         }
         else {
