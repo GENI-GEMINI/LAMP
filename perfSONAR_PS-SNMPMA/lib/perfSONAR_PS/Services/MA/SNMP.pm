@@ -830,12 +830,14 @@ sub registerLS {
         return -1;
     }
 
-    # 08/25/2010:
-    #   GFR: Services should register even if there's no data.
-    #if ( $#resultsString == -1 ) {
-    #    $self->{LOGGER}->warn( "No data to register with LS" );
-    #    return -1;
-    #}
+    if ( $#resultsString == -1 ) {
+        $self->{LOGGER}->warn( "No data to register with LS" );
+        # 08/25/2010:
+        #   GFR: Services should register even if there's no data.
+        #return -1;
+        
+        @resultsString = ();
+    }
     
     $ls->registerStatic( \@resultsString );
     return 0;
