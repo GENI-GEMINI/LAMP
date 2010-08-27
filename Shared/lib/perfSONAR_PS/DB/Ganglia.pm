@@ -293,7 +293,7 @@ sub openDB {
     $config{"gridname"} = "unspecified" unless defined $config{"gridname"};
 
     # gmetad host
-    $config{"host"} = "node2";
+    $config{"host"} = "localhost";
 
     # gmetad port (requests for XML)
     $config{"xml_port"} = "8651" unless defined $config{"xml_port"};
