@@ -293,7 +293,7 @@ sub openDB {
     $config{"gridname"} = "unspecified" unless defined $config{"gridname"};
 
     # gmetad host
-    $config{"host"} = "localhost";
+    $config{"host"} = "node2";
 
     # gmetad port (requests for XML)
     $config{"xml_port"} = "8651" unless defined $config{"xml_port"};
@@ -428,8 +428,8 @@ sub openDB {
                                     }
                                     $self->{STORE} .= "        </nmwg:parameter>\n";
                                 }
+                                $self->{STORE} .= "        <nmwg:parameter name=\"lastTime\">" . $rrd_result->{"last_update"} . "</nmwg:parameter>\n" if $rrd_result->{"last_update"};
                             }
-                            $self->{STORE} .= "        <nmwg:parameter name=\"lastTime\">" . $rrd_result->{"last_update"} . "</nmwg:parameter>\n" if $rrd_result->{"last_update"};
                             $self->{STORE} .= "        <nmwg:parameter name=\"firstTime\">" . $first . "</nmwg:parameter>\n" if $first;
                         }
                         $self->{STORE} .= "      </nmwg:parameters>\n";

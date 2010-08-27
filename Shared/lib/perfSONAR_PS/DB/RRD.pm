@@ -241,7 +241,7 @@ sub info {
         $self->{LOGGER}->error( "Database error \"" . $RRDp::error . "\"." );
         %rrd_result = ();
         $rrd_result{ANSWER} = $RRDp::error;
-        return %rrd_result;
+        return \%rrd_result;
     }
 
     my %res = ();
