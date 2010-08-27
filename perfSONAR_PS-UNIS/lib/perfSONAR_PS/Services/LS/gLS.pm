@@ -281,8 +281,10 @@ sub init {
             $self->{LOGGER}->fatal( "This service requires a service_accesspoint or external_address to be set, exiting." );
             return -1;
         }
-        $self->{LOGGER}->debug( "Setting service access point to http://" . $self->{CONF}->{external_address} . ":" . $self->{PORT} . $self->{ENDPOINT} );
-        $self->{CONF}->{"gls"}->{"service_accesspoint"} = "http://" . $self->{CONF}->{external_address} . ":" . $self->{PORT} . $self->{ENDPOINT};
+        $self->{CONF}->{default_scheme} = "http" unless exists $self->{CONF}->{default_scheme} and $self->{CONF}->{default_scheme};
+        
+        $self->{LOGGER}->debug( "Setting service access point to " . $self->{CONF}->{default_scheme} . "://" . $self->{CONF}->{external_address} . ":" . $self->{PORT} . $self->{ENDPOINT} );
+        $self->{CONF}->{"gls"}->{"service_accesspoint"} = $self->{CONF}->{default_scheme} . "://" . $self->{CONF}->{external_address} . ":" . $self->{PORT} . $self->{ENDPOINT};
     }
 
     unless ( exists $self->{CONF}->{"gls"}->{"service_description"} and $self->{CONF}->{"gls"}->{"service_description"} ) {

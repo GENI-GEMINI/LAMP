@@ -3,7 +3,7 @@ package perfSONAR_PS::Request;
 use strict;
 use warnings;
 
-our $VERSION = 3.1;
+our $VERSION = 3.2;
 
 use fields 'REQUEST', 'REQUESTDOM', 'RESPONSE', 'RESPONSEMESSAGE', 'START_TIME', 'CALL', 'NAMESPACES', 'NETLOGGER';
 
@@ -61,7 +61,7 @@ sub new {
 
     $self->{"RESPONSE"} = HTTP::Response->new();
     $self->{"RESPONSE"}->header( 'Content-Type' => 'text/xml' );
-    $self->{"RESPONSE"}->header( 'user-agent'   => 'perfSONAR-PS/1.0b' );
+    $self->{"RESPONSE"}->header( 'user-agent'   => 'perfSONAR-PS/v3.2' );
     $self->{"RESPONSE"}->code( "200" );
 
     $self->{"START_TIME"} = [Time::HiRes::gettimeofday];

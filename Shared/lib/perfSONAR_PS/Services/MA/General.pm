@@ -3,7 +3,7 @@ package perfSONAR_PS::Services::MA::General;
 use strict;
 use warnings;
 
-our $VERSION = 3.1;
+our $VERSION = 3.2;
 
 =head1 NAME
 
@@ -82,6 +82,7 @@ sub getSPXQuery {
                 $path =~ s/nmwg:subject/*[local-name()=\"subject\"]/mx;
 
                 if ( $path ne "nmwg:eventType" and ( not $path =~ m/parameters$/mx ) ) {
+
                     ( $queryCount, $parameters->{queryString} ) = xQueryAttributes( { node => $parameters->{node}, path => $path, queryCount => $queryCount, queryString => $parameters->{queryString} } );
                     if ( $parameters->{node}->hasChildNodes() ) {
                         ( $queryCount, $parameters->{queryString} ) = xQueryText( { node => $parameters->{node}, path => $path, queryCount => $queryCount, queryString => $parameters->{queryString} } );
@@ -89,12 +90,40 @@ sub getSPXQuery {
                             $parameters->{queryString} = getSPXQuery( { node => $c, queryString => $parameters->{queryString} } );
                         }
                     }
+                    else {
+                        # XXX jz - 8/26/2010
+                        # Adding this case to deal with singleton parameter 
+                        #   blocks (helps in wild card matches...)
+
+                        if ( exists $parameters->{queryString} and $parameters->{queryString} ) {
+                            # XXX jz - 8/26/2010
+                            # does this case ever happen?
+                            $parameters->{queryString} = $parameters->{queryString} . " and ./" . $path if $path;
+                        }
+                        else {
+                            $parameters->{queryString} = $parameters->{queryString} . "./" . $path if $path;
+                        }
+                    }             
                 }
                 elsif ( $path =~ m/parameters$/mx ) {
                     if ( $parameters->{node}->hasChildNodes() ) {
                         ( $queryCount, $parameters->{queryString} ) = xQueryParameters( { node => $parameters->{node}, path => $path, queryCount => $queryCount, queryString => $parameters->{queryString} } );
                     }
-                }
+                    else {
+                        # XXX jz - 8/26/2010
+                        # Adding this case to deal with singleton parameter 
+                        #   blocks (helps in wild card matches...)
+                        
+                        if ( exists $parameters->{queryString} and $parameters->{queryString} ) {
+                            # XXX jz - 8/26/2010
+                            # does this case ever happen?
+                            $parameters->{queryString} = $parameters->{queryString} . " and ./" . $path if $path;
+                        }
+                        else {
+                            $parameters->{queryString} = $parameters->{queryString} . "./" . $path if $path;
+                        }
+                    }
+                }               
             }
         }
     }
@@ -542,9 +571,7 @@ sub getFilterParameters {
 
     # We need to know the resolution before anything else since the gt or lt operators use it.
     my $temp = find( $parameters->{m}, ".//*[local-name()=\"parameters\"]/*[local-name()=\"parameter\" and \@name=\"resolution\"]", 1 );
-    if ( $temp ) {
-        $time{"RESOLUTION"} = extract( $temp, 1 );
-    }
+    $time{"RESOLUTION"} = extract( $temp, 1 ) if $temp;    
 
     $time{"RESOLUTION_SPECIFIED"} = 0;
     if (   ( not $time{"RESOLUTION"} )
@@ -767,7 +794,7 @@ Bugs, feature requests, and improvements can be directed here:
 
 =head1 VERSION
 
-$Id: General.pm 4019 2010-04-07 17:40:37Z aaron $
+$Id: General.pm 4363 2010-08-27 01:45:36Z zurawski $
 
 =head1 AUTHOR
 

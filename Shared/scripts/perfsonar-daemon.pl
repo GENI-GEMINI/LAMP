@@ -59,6 +59,7 @@ my %ns = (
     xpath         => "http://ggf.org/ns/nmwg/tools/org/perfsonar/service/lookup/xpath/1.0/",
     nmwgt         => "http://ggf.org/ns/nmwg/topology/2.0/",
     nmwgtopo3     => "http://ggf.org/ns/nmwg/topology/base/3.0/",
+    nmwgt3        => "http://ggf.org/ns/nmwg/topology/base/3.0/",
     pinger        => "http://ggf.org/ns/nmwg/tools/pinger/2.0/",
     nmwgr         => "http://ggf.org/ns/nmwg/result/2.0/",
     traceroute    => "http://ggf.org/ns/nmwg/tools/traceroute/2.0/",
@@ -81,6 +82,7 @@ my %ns = (
     transport     => "http://ogf.org/schema/network/topology/transport/20070828/",
     unis          => "http://ogf.org/schema/network/topology/unis/20100528/",
     xmldsig       => "http://www.w3.org/2000/09/xmldsig#",
+    ganglia       => "http://ggf.org/ns/nmwg/tools/ganglia/2.0/"
 );
 
 use perfSONAR_PS::Common;

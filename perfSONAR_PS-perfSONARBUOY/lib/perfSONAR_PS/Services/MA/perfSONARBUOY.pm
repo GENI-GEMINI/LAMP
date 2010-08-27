@@ -274,12 +274,14 @@ sub init {
         }
 
         if ( not $self->{CONF}->{"perfsonarbuoy"}->{"service_accesspoint"} ) {
-            unless ( $self->{CONF}->{external_address} ) {
-                $self->{LOGGER}->fatal( "With LS registration enabled, you need to specify either the service accessPoint for the service or the external_address" );
+            unless ( exists $self->{CONF}->{external_address} and $self->{CONF}->{external_address} ) {
+                $self->{LOGGER}->fatal( "This service requires a service_accesspoint or external_address to be set, exiting." );
                 return -1;
             }
-            $self->{LOGGER}->info( "Setting service access point to http://" . $self->{CONF}->{external_address} . ":" . $self->{PORT} . $self->{ENDPOINT} );
-            $self->{CONF}->{"perfsonarbuoy"}->{"service_accesspoint"} = "http://" . $self->{CONF}->{external_address} . ":" . $self->{PORT} . $self->{ENDPOINT};
+            $self->{CONF}->{default_scheme} = "http" unless exists $self->{CONF}->{default_scheme} and $self->{CONF}->{default_scheme};
+            
+            $self->{LOGGER}->debug( "Setting service access point to " . $self->{CONF}->{default_scheme} . "://" . $self->{CONF}->{external_address} . ":" . $self->{PORT} . $self->{ENDPOINT} );
+            $self->{CONF}->{"perfsonarbuoy"}->{"service_accesspoint"} = $self->{CONF}->{default_scheme} . "://" . $self->{CONF}->{external_address} . ":" . $self->{PORT} . $self->{ENDPOINT};
         }
 
         unless ( exists $self->{CONF}->{"perfsonarbuoy"}->{"service_description"}

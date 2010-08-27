@@ -184,11 +184,9 @@ sub openDB {
     my $parameters = validateParams( @args, {} );
 
     if ( exists $self->{PATH} ) {
-        eval {
-            RRDp::start $self->{PATH};
-        };
-        if ($@ !~ /already running/) {
-            $self->{LOGGER}->error( "Couldn't start RRD: ".$@ );
+        eval { RRDp::start $self->{PATH}; };
+        if ( $@ and $@ !~ /already running/ ) {
+            $self->{LOGGER}->error( "Couldn't start RRD: " . $@ );
             return -1;
         }
         return 0;

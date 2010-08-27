@@ -111,10 +111,13 @@ sub init {
         
         $self->configureConf( 'service_domain', undef, $self->getConf( 'service_domain' ) );
         
+        $self->configureConf( 'default_scheme', "http", $self->getConf( 'default_scheme' ) );
+        
         my $default_accesspoint;
         if ( $self->getConf( "external_address" ) ) {
-            $default_accesspoint = 'http://' . $self->getConf( "external_address" ) . ':' . $self->{PORT} . $self->{ENDPOINT};
+            $default_accesspoint = $self->getConf( 'default_scheme' ) . '://' . $self->getConf( "external_address" ) . ':' . $self->{PORT} . $self->{ENDPOINT};
         }
+    
         $self->configureConf( 'service_accesspoint', $default_accesspoint, $self->getConf( 'service_accesspoint' ) );
         if ( $self->getConf( "enable_registration" ) and not $self->getConf( "service_accesspoint" ) ) {
             $logger->logdie( "Must have either a service_accesspoint or an external address specified if you enable registration" );
