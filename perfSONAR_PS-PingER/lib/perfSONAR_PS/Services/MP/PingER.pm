@@ -39,6 +39,7 @@ use perfSONAR_PS::Services::MP::Agent::PingER;
 use perfSONAR_PS::Services::MP::Config::PingER;
 
 use perfSONAR_PS::Client::LS::Remote;
+use perfSONAR_PS::Topology::ID qw(idIsFQ);
 
 use Scalar::Util qw(blessed);
 use Data::Dumper;
@@ -109,7 +110,16 @@ sub init {
         }
         $self->configureConf( 'service_description', $default_description, $self->getConf( 'service_description' ) );
         
-        $self->configureConf( 'service_domain', undef, $self->getConf( 'service_domain' ) );
+        if ( $self->getConf( "enable_registration" ) and not ( $self->getConf( "service_node" ) or $self->getConf( "node_id" ) ) ) {
+            # XXX: For now we make this a hard fail since the rest of the GENI infrastructure will depend on it.
+            $logger->logdie( "This service requires the service_node or node_id to be set, exiting." );
+        }
+        
+        $self->configureConf( 'service_node', $self->getConf( 'node_id' ), $self->getConf( 'service_node' ) );
+        
+        if ( $self->getConf( "enable_registration" ) and not idIsFQ( $self->getConf( 'service_node' ), "node" ) ) {
+            $logger->logdie( "service_node (or node_id) is not a fully-qualified UNIS node id, exiting." );
+        }
         
         $self->configureConf( 'default_scheme', "http", $self->getConf( 'default_scheme' ) );
         

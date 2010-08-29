@@ -446,7 +446,7 @@ sub openDB {
 
     $rrddb->closeDB;
 
-    return;
+    return 0;
 }
 
 =head2 commitDB($self, { })

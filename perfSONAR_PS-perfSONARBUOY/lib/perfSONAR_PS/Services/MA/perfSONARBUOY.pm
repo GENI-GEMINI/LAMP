@@ -62,6 +62,7 @@ use perfSONAR_PS::DB::File;
 use perfSONAR_PS::DB::SQL;
 use perfSONAR_PS::Utils::NetLogger;
 use perfSONAR_PS::Utils::ParameterValidation;
+use perfSONAR_PS::Topology::ID qw(idIsFQ);
 
 my %ma_namespaces = (
     nmwg       => "http://ggf.org/ns/nmwg/base/2.0/",
@@ -310,6 +311,20 @@ sub init {
         {
             $self->{CONF}->{"perfsonarbuoy"}->{"service_type"} = "MA";
             $self->{LOGGER}->warn( "Setting 'service_type' to 'MA'." );
+        }
+        
+        unless ( exists $self->{CONF}->{"perfsonarbuoy"}->{"service_node"} and $self->{CONF}->{"perfsonarbuoy"}->{"service_node"} ) {
+            unless ( exists $self->{CONF}->{"node_id"} and $self->{CONF}->{"node_id"} ) {
+                # XXX: For now we make this a hard fail since the rest of the GENI infrastructure will depend on it.
+                $self->{LOGGER}->fatal( "This service requires the service_node or node_id to be set, exiting." );
+                return -1;
+            }
+            $self->{CONF}->{"perfsonarbuoy"}->{"service_node"} = $self->{CONF}->{"node_id"};
+        }
+        
+        unless ( idIsFQ( $self->{CONF}->{"perfsonarbuoy"}->{"service_node"}, "node" ) ) {
+            $self->{LOGGER}->fatal( "service_node (or node_id) is not a fully-qualified UNIS node id, exiting." );
+            return -1;
         }
     }
 
@@ -1671,6 +1686,7 @@ sub registerLS {
 
     if ( !defined $self->{LS_CLIENT} ) {
         my %ls_conf = (
+            SERVICE_NODE        => $self->{CONF}->{"perfsonarbuoy"}->{"service_node"},
             SERVICE_TYPE        => $self->{CONF}->{"perfsonarbuoy"}->{"service_type"},
             SERVICE_NAME        => $self->{CONF}->{"perfsonarbuoy"}->{"service_name"},
             SERVICE_DESCRIPTION => $self->{CONF}->{"perfsonarbuoy"}->{"service_description"},
