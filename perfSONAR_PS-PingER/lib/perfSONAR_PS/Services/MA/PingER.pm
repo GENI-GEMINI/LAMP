@@ -36,6 +36,7 @@ use perfSONAR_PS::Datatypes::Message;
 use perfSONAR_PS::Datatypes::PingER;
 use perfSONAR_PS::DB::SQL::PingER;
 use perfSONAR_PS::Utils::ParameterValidation;
+use perfSONAR_PS::Topology::ID qw(idIsFQ);
 
 use perfSONAR_PS::Services::Base;
 use base 'perfSONAR_PS::Services::Base';
@@ -102,12 +103,24 @@ sub init {
         }
         $self->configureConf( 'service_description', $default_description, $self->getConf( 'service_description' ) );
         
-        $self->configureConf( 'service_domain', undef, $self->getConf( 'service_domain' ) );
+        if ( $self->getConf( "enable_registration" ) and not ( $self->getConf( "service_node" ) or $self->getConf( "node_id" ) ) ) {
+            # XXX: For now we make this a hard fail since the rest of the GENI infrastructure will depend on it.
+            $logger->logdie( "This service requires the service_node or node_id to be set, exiting." );
+        }
+        
+        $self->configureConf( 'service_node', $self->getConf( 'node_id' ), $self->getConf( 'service_node' ) );
+        
+        if ( $self->getConf( "enable_registration" ) and not idIsFQ( $self->getConf( 'service_node' ), "node" ) ) {
+            $logger->logdie( "service_node (or node_id) is not a fully-qualified UNIS node id, exiting." );
+        }
+        
+        $self->configureConf( 'default_scheme', "http", $self->getConf( 'default_scheme' ) );
         
         my $default_accesspoint;
         if ( $self->getConf( "external_address" ) ) {
-            $default_accesspoint = 'http://' . $self->getConf( "external_address" ) . ':' . $self->{PORT} . $self->{ENDPOINT};
+            $default_accesspoint = $self->getConf( 'default_scheme' ) . '://' . $self->getConf( "external_address" ) . ':' . $self->{PORT} . $self->{ENDPOINT};
         }
+        
         $self->configureConf( 'service_accesspoint', $default_accesspoint, $self->getConf( 'service_accesspoint' ) );
         if ( $self->getConf( "enable_registration" ) and not $self->getConf( "service_accesspoint" ) ) {
             $logger->logdie( "Must have either a service_accesspoint or an external address specified if you enable registration" );
@@ -316,9 +329,9 @@ sub registerLS($) {
     # create new client if required
     if ( !defined $self->ls() ) {
         my $ls_conf = {
+            'SERVICE_NODE'        => $self->getConf( 'service_node' ),
             'SERVICE_TYPE'        => $self->getConf( 'service_type' ),
             'SERVICE_NAME'        => $self->getConf( 'service_name' ),
-            'SERVICE_DOMAIN'      => $self->getConf( 'service_domain' ),
             'SERVICE_DESCRIPTION' => $self->getConf( 'service_description' ),
             'SERVICE_ACCESSPOINT' => $self->getConf( 'service_accesspoint' ),
         };

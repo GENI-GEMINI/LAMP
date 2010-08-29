@@ -309,9 +309,9 @@ sub registerLS($) {
     # create new client if required
     if ( !defined $self->ls() ) {
         my $ls_conf = {
+            'SERVICE_NODE'        => $self->getConf( 'service_node' ),
             'SERVICE_TYPE'        => $self->getConf( 'service_type' ),
             'SERVICE_NAME'        => $self->getConf( 'service_name' ),
-            'SERVICE_DOMAIN'      => $self->getConf( 'service_domain' ),
             'SERVICE_DESCRIPTION' => $self->getConf( 'service_description' ),
             'SERVICE_ACCESSPOINT' => $self->getConf( 'service_accesspoint' ),
         };
