@@ -79,7 +79,7 @@ sub init {
     }
     elsif ( exists $self->{CONF}->{"psconfig"}->{"domain"} and $self->{CONF}->{"psconfig"}->{"domain"} and
                 exists $self->{CONF}->{"psconfig"}->{"node"} and $self->{CONF}->{"psconfig"}->{"node"} ) {
-        $self->{NODE_ID} = idConstruct( "domain", $self->{CONF}->{"psconfig"}->{"domain"}, "node", $self->{CONF}->{"psconfig"}->{"node"} );
+        $self->{NODE_ID} = idConstruct( "domain", $self->{CONF}->{"psconfig"}->{"domain"}, "node", $self->{CONF}->{"psconfig"}->{"node"}, q{} );
     }
     else {
         $self->{LOGGER}->error("Couldn't determine node id.");

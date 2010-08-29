@@ -166,6 +166,7 @@ sub manageService {
 # The following is adapted from PingER's create_landmarks.pl by Maxim Grigoriev.
 # TODO: should be moved somewhere else (e.g. perfSONAR_PS::Services::MP::Config::PingER)
 #
+use Socket;
 use IO::File;
 use perfSONAR_PS::Utils::DNS qw/reverse_dns resolve_address/;
 
@@ -318,8 +319,17 @@ sub check_row {
     }
     unless ( $mark->{ip} ) {
         unless ( $dns_cache_h->{ $mark->{hostname} } ) {
-            ( $mark->{ip} ) = resolve_address( $mark->{hostname} );
-            $dns_cache_h->{ $mark->{hostname} } = $mark->{ip};
+            #
+            # GFR: Net::DNS::Resolver does not use /etc/hosts.
+            #   This is a big problem in GENI (but why not gethostbyname?).
+            #
+            #( $mark->{ip} ) = resolve_address( $mark->{hostname} );
+            
+            my $packed_ip = gethostbyname( $mark->{hostname} );
+            if (defined $packed_ip) {
+                $mark->{ip} = inet_ntoa($packed_ip);
+                $dns_cache_h->{ $mark->{hostname} } = $mark->{ip};
+            }
         }
         else {
             $mark->{ip} = $dns_cache_h->{ $mark->{hostname} };

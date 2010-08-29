@@ -208,13 +208,13 @@ sub xQuery {
             if ( $metadata_elms ) {
                 foreach my $metadata ( $metadata_elms->get_nodelist ) {
                     if ( $data->getAttribute( "metadataIdRef" ) eq $metadata->getAttribute( "id" ) ) {
-                        my $topology = find( $data, './*[local-name()="topology"]', 1 );
-                        if ( $topology ) {
+                        my @children = $data->nonBlankChildNodes();
+                        if ( scalar @children != 0 ) {
                             unless ($encoded) {
-                                return ( 0, $topology->toString );
+                                return ( 0, $children[0]->toString );
                             }
                             else {
-                                return ( 0, $topology );
+                                return ( 0, $children[0] );
                             }
                         }
                     }
@@ -223,7 +223,7 @@ sub xQuery {
         }
     }
 
-    my $msg = "Response does not contain a topology";
+    my $msg = "Response does not contain data";
     $self->{LOGGER}->error( $msg );
     return ( -1, $msg );
 }
