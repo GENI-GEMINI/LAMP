@@ -30,7 +30,7 @@ use Cwd;
 use Config::General;
 use Module::Load;
 use HTTP::Daemon;
-use HTTP::Daemon::SSL qw( debug3 );
+use HTTP::Daemon::SSL;
 use Net::SSLeay;
 use English '-no_match_vars';
 use Carp;
