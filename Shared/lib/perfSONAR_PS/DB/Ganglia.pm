@@ -5,7 +5,7 @@ use warnings;
 
 our $VERSION = 3.2;
 
-use fields 'LOGGER', 'CONF', 'FILE', 'STORE', 'RRDTOOL', 'TELNET', 'MAP';
+use fields 'LOGGER', 'CONF', 'FILE', 'STORE', 'RRDTOOL', 'TELNET', 'MAP', 'TEMPLATES';
 
 =head1 NAME
 
