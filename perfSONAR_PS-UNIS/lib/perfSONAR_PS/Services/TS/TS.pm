@@ -35,7 +35,7 @@ use Params::Validate qw(:all);
 use perfSONAR_PS::Common;
 use perfSONAR_PS::Messages;
 use perfSONAR_PS::Topology::Common qw( normalizeTopology validateDomain validateNode validatePort validateLink getTopologyNamespaces );
-use perfSONAR_PS::Topology::ID qw( idEncode idBaseLevel );
+use perfSONAR_PS::Topology::ID qw( idIsFQ idEncode idBaseLevel );
 use perfSONAR_PS::DB::TopologyXMLDB;
 use perfSONAR_PS::Client::LS::Remote;
 use perfSONAR_PS::Utils::ParameterValidation;
@@ -163,12 +163,18 @@ sub init {
             $self->{LOGGER}->warn( "Setting 'service_type' to 'TS'." );
         }
         
-        if ( ( not exists $self->{CONF}->{"topology"}->{"service_domain"}
-            or $self->{CONF}->{"topology"}->{"service_domain"} eq q{} ) 
-            and exists $self->{CONF}->{"service_domain"}
-            and $self->{CONF}->{"service_domain"} )
-        {
-            $self->{CONF}->{"topology"}->{"service_domain"} = $self->{CONF}->{"service_domain"};
+        unless ( exists $self->{CONF}->{"topology"}->{"service_node"} and $self->{CONF}->{"topology"}->{"service_node"} ) {
+            unless ( exists $self->{CONF}->{"topology"} and $self->{CONF}->{"node_id"} ) {
+                # XXX: For now we make this a hard fail since the rest of the GENI infrastructure will depend on it.
+                $self->{LOGGER}->fatal( "This service requires the service_node or node_id to be set, exiting." );
+                return -1;
+            }
+            $self->{CONF}->{"topology"}->{"service_node"} = $self->{CONF}->{"node_id"};
+        }
+        
+        unless ( idIsFQ( $self->{CONF}->{"topology"}->{"service_node"}, "node" ) ) {
+            $self->{LOGGER}->fatal( "service_node (or node_id) is not a fully-qualified UNIS node id, exiting." );
+            return -1;
         }
     }
 
@@ -214,11 +220,11 @@ sub registerLS {
 
     unless ( exists $self->{LS_CLIENT} and $self->{LS_CLIENT} ) {
         my %ls_conf = (
+            SERVICE_NODE             => $self->{CONF}->{"topology"}->{"service_node"},
             SERVICE_TYPE             => $self->{CONF}->{"topology"}->{"service_type"},
             SERVICE_NAME             => $self->{CONF}->{"topology"}->{"service_name"},
             SERVICE_DESCRIPTION      => $self->{CONF}->{"topology"}->{"service_description"},
             SERVICE_ACCESSPOINT      => $self->{CONF}->{"topology"}->{"service_accesspoint"},
-            SERVICE_DOMAIN           => $self->{CONF}->{"topology"}->{"service_domain"},
             LS_REGISTRATION_INTERVAL => $self->{CONF}->{"topology"}->{"registration_interval"},
         );
 
@@ -526,6 +532,8 @@ sub handleQueryRequest {
     # GENI: We limit lookups to the domains for which credentials
     #   were provided. The xQuery is applied to the filtered dataset. 
     #
+    # TODO: BUG: find() is not xQuery compatible, it only takes xPath 1.0 
+    #
     my $db = $self->getRestrictedDBView( $slices );
     my $find_res = find( $db, $xquery );
     
@@ -535,7 +543,9 @@ sub handleQueryRequest {
             $dataContent .= $node->toString() ;
         }
     }
-    createData( $output, "data." . genuid(), $m->getAttribute( "id" ), $dataContent, undef );
+    
+    my %namespaces = getTopologyNamespaces();
+    createData( $output, "data." . genuid(), $m->getAttribute( "id" ), $dataContent, { unis => $namespaces{unis} } );
 
     return;
 }
@@ -584,7 +594,8 @@ sub handleSetupDataRequest {
         }
     }
     
-    createData( $output, "data." . genuid(), $m->getAttribute( "id" ), $dataContent, undef );
+    my %namespaces = getTopologyNamespaces();
+    createData( $output, "data." . genuid(), $m->getAttribute( "id" ), $dataContent, { unis => $namespaces{unis} } );
 
     return;
 }

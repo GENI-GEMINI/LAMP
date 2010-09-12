@@ -254,8 +254,12 @@ sub update {
                     description => Description->new( { text => $mark->{description} } ),
                     port        => Port->new(
                         {
+                            #
+                            # GFR: We don't know the port id; to assume that it
+                            #   is uses the IP address can be wrong, so use *.
+                            #
                             xml => qq{
-<nmtl3:port xmlns:nmtl3="http://ogf.org/schema/network/topology/l3/20070707/" id="$node_id:port=$mark->{ip}">
+<nmtl3:port xmlns:nmtl3="http://ogf.org/schema/network/topology/l3/20070707/" id="$node_id:port=*">
     <nmtl3:ipAddress type="IPv4">$mark->{ip}</nmtl3:ipAddress>
 </nmtl3:port>
 }

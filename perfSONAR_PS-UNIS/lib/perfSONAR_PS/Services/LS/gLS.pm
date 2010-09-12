@@ -70,6 +70,7 @@ use perfSONAR_PS::Error_compat qw/:try/;
 use perfSONAR_PS::Utils::ParameterValidation;
 use perfSONAR_PS::Client::LS;
 use perfSONAR_PS::Client::gLS;
+use perfSONAR_PS::Topology::ID qw(idIsFQ);
 
 my %ls_namespaces = (
     nmwg          => "http://ggf.org/ns/nmwg/base/2.0/",
@@ -314,10 +315,18 @@ sub init {
         $self->{LOGGER}->debug( "Setting 'service_type' to \"" . $self->{CONF}->{"gls"}->{"service_type"} . "\"." );
     }
     
-    unless ( ( exists $self->{CONF}->{"gls"}->{"service_domain"} and $self->{CONF}->{"gls"}->{"service_domain"} )
-             or not ( exists $self->{CONF}->{"service_domain"} and $self->{CONF}->{"service_domain"} ) )
-    {
-        $self->{CONF}->{"gls"}->{"service_domain"} = $self->{CONF}->{"service_domain"};
+    unless ( exists $self->{CONF}->{"gls"}->{"service_node"} and $self->{CONF}->{"gls"}->{"service_node"} ) {
+        unless ( exists $self->{CONF}->{"node_id"} and $self->{CONF}->{"node_id"} ) {
+            # XXX: For now we make this a hard fail since the rest of the GENI infrastructure will depend on it.
+            $self->{LOGGER}->fatal( "This service requires the service_node or node_id to be set, exiting." );
+            return -1;
+        }
+        $self->{CONF}->{"gls"}->{"service_node"} = $self->{CONF}->{"node_id"};
+    }
+    
+    unless ( idIsFQ( $self->{CONF}->{"gls"}->{"service_node"}, "node" ) ) {
+        $self->{LOGGER}->fatal( "service_node (or node_id) is not a fully-qualified UNIS node id, exiting." );
+        return -1;
     }
 
     $handler->registerFullMessageHandler( "LSRegisterRequest",        $self );
@@ -687,11 +696,11 @@ sub registerLS {
         # if we are not a root, send our summary to a root
 
         my %service = (
+            serviceNode         => $self->{CONF}->{"gls"}->{"service_node"},
             serviceName        => $self->{CONF}->{"gls"}->{"service_name"},
             serviceType        => $self->{CONF}->{"gls"}->{"service_type"},
             serviceDescription => $self->{CONF}->{"gls"}->{"service_description"},
             accessPoint        => $self->{CONF}->{"gls"}->{"service_accesspoint"},
-            serviceDomain      => $self->{CONF}->{"gls"}->{"service_domain"}
         );
 
         $eventType = "http://ogf.org/ns/nmwg/tools/org/perfsonar/service/lookup/registration/summary/2.0";
@@ -3248,7 +3257,6 @@ sub lsQueryRequest {
         }
 
         # start to form the query here
-        # GFR: should be LSStore-summary?
         my $queryString = "/nmwg:store[\@type=\"LSStore\"]/nmwg:data";
         my $queryStructure;
 

@@ -124,8 +124,8 @@ if ( -d $base ) {
     }
     push @anchors, { ANCHOR => "daemons", TYPE => "Measurement Tools", ANCHORITEMS => \@anch };
 
-    my @anch     = ();
-    my $counter1 = 0;
+    @anch     = ();
+    $counter1 = 0;
     foreach my $file ( keys %serviceMap ) {
         if ( -f $base . "/" . $file ) {
             open( READ, "<" . $base . "/" . $file ) or next;

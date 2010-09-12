@@ -1,1 +1,1 @@
-../../../Shared/lib/OWP/Conf.pm
+../../../Shared/lib/perfSONAR_PS/Config/OWP/Conf.pm

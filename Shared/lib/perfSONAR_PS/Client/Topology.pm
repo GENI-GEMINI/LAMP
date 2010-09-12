@@ -172,13 +172,13 @@ sub buildChangeRequest {
 
 =head2 xQuery($self, $xquery, $encoded)
 
-The xQuery function performs an xquery on the specified TS. It returns the
-results as a string or as a dom object if the $encoded flag is set.
+The xQuery function performs an xquery on the specified TS. 
+It returns the results as an encoded dom NodeList. 
 
 =cut
 
 sub xQuery {
-    my ( $self, $xquery, $encoded ) = @_;
+    my ( $self, $xquery ) = @_;
     my $localContent = q{};
     my $error;
     my ( $status, $res, $request );
@@ -208,15 +208,7 @@ sub xQuery {
             if ( $metadata_elms ) {
                 foreach my $metadata ( $metadata_elms->get_nodelist ) {
                     if ( $data->getAttribute( "metadataIdRef" ) eq $metadata->getAttribute( "id" ) ) {
-                        my @children = $data->nonBlankChildNodes();
-                        if ( scalar @children != 0 ) {
-                            unless ($encoded) {
-                                return ( 0, $children[0]->toString );
-                            }
-                            else {
-                                return ( 0, $children[0] );
-                            }
-                        }
+                        return ( 0, $data->cloneNode( 1 ) );
                     }
                 }
             }

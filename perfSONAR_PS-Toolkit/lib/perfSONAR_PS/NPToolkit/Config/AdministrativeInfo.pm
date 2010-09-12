@@ -26,17 +26,8 @@ use Params::Validate qw(:all);
 use Storable qw(store retrieve freeze thaw dclone);
 use Data::Dumper;
 
-use perfSONAR_PS::NPToolkit::ConfigManager::Utils qw( save_file restart_service );
-use perfSONAR_PS::NPToolkit::Config::NDT;
-use perfSONAR_PS::NPToolkit::Config::NPAD;
-use perfSONAR_PS::NPToolkit::Config::PingER;
-use perfSONAR_PS::NPToolkit::Config::perfSONARBUOYMA;
-use perfSONAR_PS::NPToolkit::Config::SNMPMA;
-use perfSONAR_PS::NPToolkit::Config::hLS;
-use perfSONAR_PS::NPToolkit::Config::LSRegistrationDaemon;
-
-# These are the defaults for the current NPToolkit
-my %defaults = ( administrative_info_file => "/opt/perfsonar_ps/toolkit/etc/administrative_info", );
+# These are the defaults for the current LAMP I&M System
+my %defaults = ( administrative_info_file => "/usr/local/etc/site.info", );
 
 =head2 init({ administrative_info_file => 0 })
 
@@ -61,85 +52,6 @@ sub init {
         return $res;
     }
 
-    return 0;
-}
-
-=head2 save({ restart_services => 0 })
-    Saves the configuration to disk. All the perfSONAR services depend way on
-    the information configured here. The NDT and NPAD configurations are
-    updated here as well.
-=cut
-
-sub save {
-    my ( $self, @params ) = @_;
-    my $parameters = validate( @params, { restart_services => 0, } );
-
-    my $administrative_info_output = $self->generate_administrative_info_file();
-
-    my $res;
-
-    $res = save_file( { file => $self->{SITE_INFO_FILE}, content => $administrative_info_output } );
-    if ( $res == -1 ) {
-        return (-1, "Problem saving administrative information");
-    }
-
-    my @keywords = keys %{ $self->{KEYWORDS} };
-
-    my $ndt_config = perfSONAR_PS::NPToolkit::Config::NDT->new();
-    if ( $ndt_config->init() != 0 ) {
-        return (-1, "Couldn't initialize NDT configuration");
-    }
-    my $npad_config = perfSONAR_PS::NPToolkit::Config::NPAD->new();
-    if ( $npad_config->init() != 0 ) {
-        return (-1, "Couldn't initialize NPAD configuration");
-    }
-
-    my $pinger_config = perfSONAR_PS::NPToolkit::Config::PingER->new();
-    if ( $pinger_config->init() != 0 ) {
-        return (-1, "Couldn't initialize PingER configuration");
-    }
-
-    my $psb_ma_config = perfSONAR_PS::NPToolkit::Config::perfSONARBUOYMA->new();
-    if ( $psb_ma_config->init() != 0 ) {
-        return (-1, "Couldn't initialize perfSONARBUOY-MA configuration");
-    }
-
-    my $snmp_ma_config = perfSONAR_PS::NPToolkit::Config::SNMPMA->new();
-    if ( $snmp_ma_config->init() != 0 ) {
-        return (-1, "Couldn't initialize perfSONARBUOY-MA configuration");
-    }
-
-    my $hls_config = perfSONAR_PS::NPToolkit::Config::hLS->new();
-    if ( $hls_config->init() != 0 ) {
-        return (-1, "Couldn't initialize hLS configuration");
-    }
-
-    my $ls_reg_daemon_config = perfSONAR_PS::NPToolkit::Config::LSRegistrationDaemon->new();
-    if ( $ls_reg_daemon_config->init() != 0 ) {
-        return (-1, "Couldn't initialize LS Registration Daemon configuration");
-    }
-
-    foreach my $service_config ($ndt_config, $npad_config) {
-        $service_config->set_location( location => $self->{LOCATION} );
-        $service_config->set_administrator_email( administrator_email => $self->{ADMINISTRATOR_EMAIL} );
-        $service_config->set_administrator_name( administrator_name => $self->{ADMINISTRATOR_NAME} );
-        $service_config->set_organization_name( organization_name => $self->{ORGANIZATION_NAME} );
-        $res = $service_config->save({ restart_services => $parameters->{restart_services} });
-        if ($res != 0) {
-            return (-1, "Couldn't save or restart ".$service_config->get_service_name);
-        }
-    }
-
-    foreach my $service_config ($pinger_config, $psb_ma_config, $snmp_ma_config, $hls_config, $ls_reg_daemon_config) {
-        $service_config->set_location( location => $self->{LOCATION} );
-        $service_config->set_organization_name( organization_name => $self->{ORGANIZATION_NAME} );
-        $service_config->set_projects( projects => \@keywords );
-        $res = $service_config->save({ restart_services => $parameters->{restart_services} });
-        if ($res != 0) {
-            return (-1, "Couldn't save or restart ".$service_config->get_service_name);
-        }
-    }
- 
     return 0;
 }
 

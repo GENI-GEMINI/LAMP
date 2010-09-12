@@ -268,9 +268,6 @@ sub sendReceive {
     $logger->debug( "Sending information to \"" . $httpEndpoint . "\": $envelope" );
     my $msg = perfSONAR_PS::Utils::NetLogger::format( "org.perfSONAR.Transport.sendReceive.start", { endpoint => $httpEndpoint, }  );
     $self->{NETLOGGER}->debug( $msg );
-
-    $logger->debug( "Doing SSL connection with CERT (" . $ENV{'HTTPS_CERT_FILE'} . ") " . 
-            "and KEY (" . $ENV{'HTTPS_KEY_FILE'} . ")" ) if $self->{CONTACT_SCHEME} eq "https";
     
     my $sendSoap = HTTP::Request->new( 'POST', $httpEndpoint, new HTTP::Headers, $envelope );
     $sendSoap->header( 'SOAPAction' => $method_uri );

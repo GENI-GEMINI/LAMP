@@ -163,7 +163,7 @@ sub run {
     my ( $status, $res );
     my $changed = 0;
     
-    ( $status, $res ) = $self->{UNIS_CLIENT}->xQuery( $self->{QUERY}, 1 );
+    ( $status, $res ) = $self->{UNIS_CLIENT}->xQuery( $self->{QUERY} );
    
     if ( $status != 0 ) {
         my $msg = "Couldn't query UNIS: $res";
@@ -171,7 +171,7 @@ sub run {
         return ( -1, $msg );
     }
     
-    my $node = $res->cloneNode( 1 );
+    my $node = $res->nonBlankChildNodes()->[0];
     
     my $last_config;
     eval {
@@ -184,12 +184,11 @@ sub run {
         $fd = new IO::File( "> $self->{LAST_CONFIG_FILE}" ) or die " Failed to open last config file ";
         print $fd $node->toString;
         $fd->close;
-    };
-    if ( $@ ) {
+    } or do {
         my $msg = " Failed to open last config file: $@";
         $self->{LOGGER}->error( $msg );
         return ( -1, $msg );
-    }
+    };
     
     $last_config = parseToDOM( $last_config );
     

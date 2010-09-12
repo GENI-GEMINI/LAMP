@@ -1,39 +1,34 @@
-#
-#      $Id: Utils.pm 3893 2010-02-17 19:42:44Z aaron $
-#
-#########################################################################
-#									#
-#			   Copyright (C)  2002				#
-#	     			Internet2				#
-#			   All Rights Reserved				#
-#									#
-#########################################################################
-#
-#	File:		perfSONAR_PS::Config::OWP::Utils.pm
-#
-#	Author:		Anatoly Karp
-#			Jeff Boote
-#			Internet2
-#
-#	Date:		Wed Oct 2 10:40:10  2002
-#
-#	Description: Auxiliary subs for large time conversions.
-package perfSONAR_PS::Config::OWP::Utils;
+package OWP::Utils;
+
+use strict;
+use warnings;
+
+our $VERSION = 3.1;
+
+=head1 NAME
+
+Utils.pm - Auxiliary subs for large time conversions.
+
+=head1 DESCRIPTION
+
+Auxiliary subs for large time conversions.
+
+=cut
+
 require 5.005;
 require Exporter;
-use strict;
 use vars qw(@ISA @EXPORT $VERSION);
 use Math::BigFloat;
 use Math::Int64 qw(uint64 uint64_to_number);
 use POSIX;
 
-@ISA = qw(Exporter);
+@ISA    = qw(Exporter);
 @EXPORT = qw(time2owptime owptimeadd owpgmtime owptimegm owpgmstring owplocaltime owplocalstring owptrange owptime2time owptstampi owpi2owp owptstampdnum pldatetime owptstamppldatetime owptime2exacttime owpexactgmstring);
 
-$perfSONAR_PS::Config::OWP::Utils::REVISION = '$Id: Utils.pm 3893 2010-02-17 19:42:44Z aaron $';
-$VERSION = $perfSONAR_PS::Config::OWP::Utils::VERSION='1.0';
+$Utils::REVISION = '$Id: Utils.pm 3893 2010-02-17 19:42:44Z aaron $';
+$VERSION = $Utils::VERSION = '1.0';
 
-use constant JAN_1970 => 0x83aa7e80; # offset in seconds
+use constant JAN_1970 => 0x83aa7e80;    # offset in seconds
 my $scale = uint64(2)**32;
 
 # Convert value return by time() into owamp-style (ASCII form
@@ -206,3 +201,45 @@ sub owpexactgmstring{
 }
 
 1;
+
+__END__
+
+=head1 SEE ALSO
+
+L<Exporter>, L<Math::Int64>, L<Math::BigFloat>, L<POSIX>
+
+To join the 'perfSONAR Users' mailing list, please visit:
+
+  https://mail.internet2.edu/wws/info/perfsonar-ps-users
+
+The perfSONAR-PS subversion repository is located at:
+
+  http://anonsvn.internet2.edu/svn/perfSONAR-PS/trunk
+
+Questions and comments can be directed to the author, or the mailing list.
+Bugs, feature requests, and improvements can be directed here:
+
+  http://code.google.com/p/perfsonar-ps/issues/list
+
+=head1 VERSION
+
+$Id: Utils.pm 3893 2010-02-17 19:42:44Z aaron $
+
+=head1 AUTHOR
+
+Jeff Boote, boote@internet2.edu
+Anatoly Karp
+
+=head1 LICENSE
+
+You should have received a copy of the Internet2 Intellectual Property Framework
+along with this software.  If not, see
+<http://www.internet2.edu/membership/ip.html>
+
+=head1 COPYRIGHT
+
+Copyright (c) 2007-2009, Internet2
+
+All rights reserved.
+
+=cut

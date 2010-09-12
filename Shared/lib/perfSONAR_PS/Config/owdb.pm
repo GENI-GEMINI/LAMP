@@ -1,51 +1,40 @@
-#
-#      $Id: owdb.pm 3831 2010-01-15 21:02:23Z alake $
-#
-#########################################################################
-#									#
-#			   Copyright (C)  2003				#
-#	     			Internet2				#
-#			   All Rights Reserved				#
-#									#
-#########################################################################
-#
-#	File:		owdb.pm
-#
-#	Author:		Jeff Boote
-#			Internet2
-#
-#	Date:		Tue Aug  5 12:40:08 UTC 2003
-#
-#	Description:	
-#
-#	Usage:
-#
-#	Environment:
-#
-#	Files:
-#
-#	Options:
-package perfSONAR_PS::Config::owdb;
+package owdb;
+
+use strict;
+use warnings;
+
+our $VERSION = 3.1;
+
+=head1 NAME
+
+owdb.pm - Database utilities for perfSONAR-BUOY
+
+=head1 DESCRIPTION
+
+Collection of functions and utilities for interacting with the backend database
+of perfSONAR-BUOY
+
+=cut
+
 require 5.005;
 require Exporter;
-use strict;
 use FindBin;
 use POSIX;
 use Fcntl qw(:flock);
 use FileHandle;
+use OWP;
+use OWP::Utils;
 use Math::Int64 qw(uint64);
-use perfSONAR_PS::Config::OWP;
-use perfSONAR_PS::Config::OWP::Utils;
 use vars qw(@ISA @EXPORT $VERSION);
 use CGI::Carp qw(fatalsToBrowser warningsToBrowser);
 use constant JAN_1970 => 0x83aa7e80;
 use File::Basename;
 
-@ISA = qw(Exporter);
+@ISA    = qw(Exporter);
 @EXPORT = qw(owdb_prep owdb_fetch owdb_worst_case owdb_plot_script bwdb_plot_script bwdb_dist_plot_script ntpdb_peer_plot_script ntpdb_loop_plot_script ntpdb_color_per_peer_plot_script trdb_plot_script trcir_plot_script);
 
-$perfSONAR_PS::Config::owdb::REVISION = '$Id: owdb.pm 3831 2010-01-15 21:02:23Z alake $';
-$VERSION = '1.0';
+$OWP::REVISION = '$Id: owdb.pm 3831 2010-01-15 21:02:23Z alake $';
+$VERSION       = '1.0';
 
 #
 # owdb_prep: this routine is used to initialize the database connection
@@ -63,23 +52,23 @@ $VERSION = '1.0';
 #			value passed in using the 'ALPHAS' arg.)
 #	ALPHAS (A sub hash with the keys set from the original alphas passed
 #		in and the values set to the delay of that "alpha".)
-sub owdb_prep{
-	my(%args) = @_;
-	my(@must) = qw(DBH RES TNAME FIRST LAST OWHASH BUCKETWIDTH);
-	my(@optional) = qw(ONLY_VALIDATED ALPHAS);
-	my(@argnames) = (@must, @optional);
-	%args = owpverify_args(\@argnames,\@must,%args);
-	scalar %args || die "Invalid args passed to owdb_prep";
+sub owdb_prep {
+    my ( %args )     = @_;
+    my ( @must )     = qw(DBH RES TNAME FIRST LAST OWHASH BUCKETWIDTH);
+    my ( @optional ) = qw(ONLY_VALIDATED ALPHAS);
+    my ( @argnames ) = ( @must, @optional );
+    %args = owpverify_args( \@argnames, \@must, %args );
+    scalar %args || die "Invalid args passed to owdb_prep";
 
-	my(%owdbh);
+    my ( %owdbh );
 
-	# save ref to callers hash - values are returned in this hash.
-	$owdbh{'OWHASH'} = $args{'OWHASH'};
-	$owdbh{'BUCKETWIDTH'} = $args{'BUCKETWIDTH'};
+    # save ref to callers hash - values are returned in this hash.
+    $owdbh{'OWHASH'}      = $args{'OWHASH'};
+    $owdbh{'BUCKETWIDTH'} = $args{'BUCKETWIDTH'};
 
-	my $sql;
-	if ($args{'ONLY_VALIDATED'}) {
-		$sql = "SELECT a.si,a.start,a.end,a.sent,a.lost,a.dups,
+    my $sql;
+    if ( $args{'ONLY_VALIDATED'} ) {
+        $sql = "SELECT a.si,a.start,a.end,a.sent,a.lost,a.dups,
 						a.min,a.max,a.err,b.i,b.n
 			FROM OWP_$args{'TNAME'} AS a
 			JOIN OWPDelays_$args{'TNAME'} AS b
@@ -87,8 +76,9 @@ sub owdb_prep{
 			WHERE
 				a.res=? AND a.ei>? AND a.si<? AND a.valid!=0
 			ORDER BY a.si,b.i";
-	} else {
-		$sql = "SELECT a.si,a.start,a.end,a.sent,a.lost,a.dups,
+    }
+    else {
+        $sql = "SELECT a.si,a.start,a.end,a.sent,a.lost,a.dups,
 						a.min,a.max,a.err,b.i,b.n
 			FROM OWP_$args{'TNAME'} AS a
 			JOIN OWPDelays_$args{'TNAME'} AS b
@@ -96,318 +86,299 @@ sub owdb_prep{
 			WHERE
 				a.res=? AND a.ei>? AND a.si<?
 			ORDER BY a.si,b.i";
-	}
+    }
 
-	$owdbh{'STH'} = $args{'DBH'}->prepare($sql) ||
-			die "Prep:Select owdb data";
-	$owdbh{'STH'}->execute($args{'RES'},$args{'FIRST'},$args{'LAST'}) ||
-			die "Select owdb data $DBI::errstr";
+    $owdbh{'STH'} = $args{'DBH'}->prepare( $sql )
+        || die "Prep:Select owdb data";
+    $owdbh{'STH'}->execute( $args{'RES'}, $args{'FIRST'}, $args{'LAST'} )
+        || die "Select owdb data $DBI::errstr";
 
-	my @vrefs = \(
-		$owdbh{'FIRST'},
-		$owdbh{'START'},
-		$owdbh{'END'},
-		$owdbh{'SENT'},
-		$owdbh{'LOST'},
-		$owdbh{'DUPS'},
-		$owdbh{'MIN'},
-		$owdbh{'MAX'},
-		$owdbh{'ERR'},
-		$owdbh{'Bi'},
-		$owdbh{'Bn'},
-		);
-	$owdbh{'STH'}->bind_columns(@vrefs);
-	my @alphas;
-	for (ref $args{'ALPHAS'}){
-		/^$/	and push @alphas, $args{'ALPHAS'},
-				next;
-		/ARRAY/	and @alphas = @{$args{'ALPHAS'}},
-				next;
-	}
+    my @vrefs = \( $owdbh{'FIRST'}, $owdbh{'START'}, $owdbh{'END'}, $owdbh{'SENT'}, $owdbh{'LOST'}, $owdbh{'DUPS'}, $owdbh{'MIN'}, $owdbh{'MAX'}, $owdbh{'ERR'}, $owdbh{'Bi'}, $owdbh{'Bn'}, );
+    $owdbh{'STH'}->bind_columns( @vrefs );
+    my @alphas;
+    for ( ref $args{'ALPHAS'} ) {
+        /^$/ and push @alphas, $args{'ALPHAS'}, next;
+        /ARRAY/ and @alphas = @{ $args{'ALPHAS'} }, next;
+    }
 
-	@{$owdbh{'ALPHAVALS'}} = sort @alphas if(@alphas);
+    @{ $owdbh{'ALPHAVALS'} } = sort @alphas if ( @alphas );
 
-	$owdbh{'DOMORE'} = 1;
-	$owdbh{'OSTART'} = 0;
-	$owdbh{'OEND'} = 0;
+    $owdbh{'DOMORE'} = 1;
+    $owdbh{'OSTART'} = 0;
+    $owdbh{'OEND'}   = 0;
 
-	return \%owdbh;
+    return \%owdbh;
 }
 
-sub owdb_fetch{
-	my(%args) = @_;
-	my(@argnames) = qw(OWDBH);
-	%args = owpverify_args(\@argnames,\@argnames,%args);
-	scalar %args || die "Invalid args passed to owdb_fetch";
+sub owdb_fetch {
+    my ( %args )     = @_;
+    my ( @argnames ) = qw(OWDBH);
+    %args = owpverify_args( \@argnames, \@argnames, %args );
+    scalar %args || die "Invalid args passed to owdb_fetch";
 
-	my $owdbh = $args{'OWDBH'};
-	my $owhash = $owdbh->{'OWHASH'};
-	my $nrecs = 0;
-	my $session_done = 0;
+    my $owdbh        = $args{'OWDBH'};
+    my $owhash       = $owdbh->{'OWHASH'};
+    my $nrecs        = 0;
+    my $session_done = 0;
 
-	if(!$owdbh->{'DOMORE'}){
-		return undef;
-	}
+    if ( !$owdbh->{'DOMORE'} ) {
+        return undef;
+    }
 
-	# increment nrecs to account for last record
-	# from "previous" session.
-	$nrecs++ if($owdbh->{'OSTART'});
+    # increment nrecs to account for last record
+    # from "previous" session.
+    $nrecs++ if ( $owdbh->{'OSTART'} );
 
-	while(!$session_done){
-		if(!$owdbh->{'STH'}->fetch){
-			$owdbh->{'START'} = 0;
-			$owdbh->{'DOMORE'} = 0;
-			# If no records at all, return 0 here.
-			return undef if(!$owdbh->{'OSTART'});
-		}
+    while ( !$session_done ) {
+        if ( !$owdbh->{'STH'}->fetch ) {
+            $owdbh->{'START'}  = 0;
+            $owdbh->{'DOMORE'} = 0;
 
-		if($owdbh->{'START'} ne $owdbh->{'OSTART'}){
-			# new owamp session - output current values
-			if($owdbh->{'OSTART'}){
-				$owhash->{'START'} = $owdbh->{'OSTART'};
-				$owhash->{'END'} = $owdbh->{'OEND'};
-				$owhash->{'SENT'} = $owdbh->{'OSENT'};
-				$owhash->{'LOST'} = $owdbh->{'OLOST'};
-				$owhash->{'DUPS'} = $owdbh->{'ODUPS'};
-				$owhash->{'ERR'} = $owdbh->{'OERR'};
-				$owhash->{'MIN'} = $owdbh->{'OMIN'};
-				$owhash->{'MAX'} = $owdbh->{'OMAX'};
-				$owhash->{'HISTOGRAM'} =
-						$owdbh->{'HISTOGRAM'};
-				my $avref = $owdbh->{'ALPHAVALS'};
-				my $adref = $owdbh->{'ALPHADELAYS'};
-				my $num_alphas = @{$avref};
-				my $i;
-				delete $owhash->{'ALPHAS'};
-				for($i=0;$i< $num_alphas;$i++){
-					my $nstr = sprintf("%08.6f",
-								${$avref}[$i]);
-					$owhash->{"ALPHA_$nstr"} =
-								${$adref}[$i];
-					${$owhash->{'ALPHAS'}}{${$avref}[$i]} =
-								${$adref}[$i];
-				}
-				$session_done = 1;
+            # If no records at all, return 0 here.
+            return undef if ( !$owdbh->{'OSTART'} );
+        }
 
-			}
+        if ( $owdbh->{'START'} ne $owdbh->{'OSTART'} ) {
 
-			# Now initialize the values for the new current session.
+            # new owamp session - output current values
+            if ( $owdbh->{'OSTART'} ) {
+                $owhash->{'START'}     = $owdbh->{'OSTART'};
+                $owhash->{'END'}       = $owdbh->{'OEND'};
+                $owhash->{'SENT'}      = $owdbh->{'OSENT'};
+                $owhash->{'LOST'}      = $owdbh->{'OLOST'};
+                $owhash->{'DUPS'}      = $owdbh->{'ODUPS'};
+                $owhash->{'ERR'}       = $owdbh->{'OERR'};
+                $owhash->{'MIN'}       = $owdbh->{'OMIN'};
+                $owhash->{'MAX'}       = $owdbh->{'OMAX'};
+                $owhash->{'HISTOGRAM'} = $owdbh->{'HISTOGRAM'};
+                my $avref      = $owdbh->{'ALPHAVALS'};
+                my $adref      = $owdbh->{'ALPHADELAYS'};
+                my $num_alphas = @{$avref};
+                my $i;
+                delete $owhash->{'ALPHAS'};
 
-			$owdbh->{'OSTART'} =
-					uint64($owdbh->{'START'});
-			$owdbh->{'OEND'} =
-					uint64($owdbh->{'END'});
-			$owdbh->{'OSENT'} = $owdbh->{'SENT'};
-			$owdbh->{'OLOST'} = $owdbh->{'LOST'};
-			$owdbh->{'ODUPS'} = $owdbh->{'DUPS'};
-			$owdbh->{'OERR'} = $owdbh->{'ERR'};
-			$owdbh->{'OMIN'} = $owdbh->{'MIN'};
-			$owdbh->{'OMAX'} = $owdbh->{'MAX'};
+                for ( $i = 0; $i < $num_alphas; $i++ ) {
+                    my $nstr = sprintf( "%08.6f", ${$avref}[$i] );
+                    $owhash->{"ALPHA_$nstr"} = ${$adref}[$i];
+                    ${ $owhash->{'ALPHAS'} }{ ${$avref}[$i] } = ${$adref}[$i];
+                }
+                $session_done = 1;
 
-			# reset buckets
-			$owdbh->{'ALPHADELAYS'} = [];
-			$owdbh->{'ALPHAINDEX'} = 0;
-			$owdbh->{'ALPHASUM'} = 0;
-			delete $owdbh->{'HISTOGRAM'};
+            }
 
-		}
+            # Now initialize the values for the new current session.
 
-		if($owdbh->{'START'} && !$session_done){
-			$nrecs++;
-		}
+            $owdbh->{'OSTART'} = uint64( $owdbh->{'START'} );
+            $owdbh->{'OEND'}   = uint64( $owdbh->{'END'} );
+            $owdbh->{'OSENT'}  = $owdbh->{'SENT'};
+            $owdbh->{'OLOST'}  = $owdbh->{'LOST'};
+            $owdbh->{'ODUPS'}  = $owdbh->{'DUPS'};
+            $owdbh->{'OERR'}   = $owdbh->{'ERR'};
+            $owdbh->{'OMIN'}   = $owdbh->{'MIN'};
+            $owdbh->{'OMAX'}   = $owdbh->{'MAX'};
 
-		if($owdbh->{'DOMORE'}){
-			my $sum = ($owdbh->{'ALPHASUM'} += $owdbh->{'Bn'});
-			my $index = $owdbh->{'ALPHAINDEX'};
-			my $avref = $owdbh->{'ALPHAVALS'};
-			my $adref = $owdbh->{'ALPHADELAYS'};
-			my $sent = $owdbh->{'OSENT'};
-			my $num_alphas = @{$avref};
-			my $href = $owdbh->{'HISTOGRAM'};
-			$owdbh->{'HISTOGRAM'}{$owdbh->{'Bi'}} = $owdbh->{'Bn'};
-			while(($index < $num_alphas) &&
-					($sum >= ${$avref}[$index]*$sent)){
-				${$adref}[$index] = $owdbh->{'Bi'} *
-							$owdbh->{'BUCKETWIDTH'};
-				$index++
-			}
-			$owdbh->{'ALPHAINDEX'} = $index;
-		}
-	}
-	return $nrecs;
+            # reset buckets
+            $owdbh->{'ALPHADELAYS'} = [];
+            $owdbh->{'ALPHAINDEX'}  = 0;
+            $owdbh->{'ALPHASUM'}    = 0;
+            delete $owdbh->{'HISTOGRAM'};
+
+        }
+
+        if ( $owdbh->{'START'} && !$session_done ) {
+            $nrecs++;
+        }
+
+        if ( $owdbh->{'DOMORE'} ) {
+            my $sum        = ( $owdbh->{'ALPHASUM'} += $owdbh->{'Bn'} );
+            my $index      = $owdbh->{'ALPHAINDEX'};
+            my $avref      = $owdbh->{'ALPHAVALS'};
+            my $adref      = $owdbh->{'ALPHADELAYS'};
+            my $sent       = $owdbh->{'OSENT'};
+            my $num_alphas = @{$avref};
+            my $href       = $owdbh->{'HISTOGRAM'};
+            $owdbh->{'HISTOGRAM'}{ $owdbh->{'Bi'} } = $owdbh->{'Bn'};
+
+            while (( $index < $num_alphas )
+                && ( $sum >= ${$avref}[$index] * $sent ) )
+            {
+                ${$adref}[$index] = $owdbh->{'Bi'} * $owdbh->{'BUCKETWIDTH'};
+                $index++;
+            }
+            $owdbh->{'ALPHAINDEX'} = $index;
+        }
+    }
+    return $nrecs;
 }
 
-sub owdb_plot_script{
+sub owdb_plot_script {
 
-        my ($tname,$tstamp,$bucket_width,$fref,$lref,$dbh,$plfh) = @_;
+    my ( $tname, $tstamp, $bucket_width, $fref, $lref, $dbh, $plfh ) = @_;
 
-        my $sql;
-        my $sth;
-        my @row;
-        my $width = 500;
-	my $ymin = 0;
-	my $ymax = 0.16;
+    my $sql;
+    my $sth;
+    my @row;
+    my $width = 500;
+    my $ymin  = 0;
+    my $ymax  = 0.16;
 
-        my @reslist;
-        # get resolutions
-        $sql="SELECT res from resolutions order by res";
-        $sth = $dbh->prepare($sql) || die "Prep:Select resolutions";
-        $sth->execute() || die "Select resolutions";
-        while(@row = $sth->fetchrow_array){
-                push @reslist, @row;
+    my @reslist;
+
+    # get resolutions
+    $sql = "SELECT res from resolutions order by res";
+    $sth = $dbh->prepare( $sql ) || die "Prep:Select resolutions";
+    $sth->execute() || die "Select resolutions";
+    while ( @row = $sth->fetchrow_array ) {
+        push @reslist, @row;
+    }
+
+    my $range = owptime2time( $$lref ) - owptime2time( $$fref );
+    my $i;
+    my $res    = 0;
+    my $lowest = $reslist[-1];
+
+    # search for highest resolution data that "fits" the width of the plot.
+    while ( $_ = shift @reslist ) {
+        $i = $_ + 0;
+        next if ( $range / $i > $width );
+        $res = $_;
+        unshift @reslist, $_;
+        last;
+    }
+
+    if ( !$res ) {
+
+        # time range is too wide to show, select the lowest resolution
+        # data we have, and adjust the start time so the data will fit
+        # in the time window.
+        $res     = $lowest;
+        @reslist = ( $res );
+        $range   = $width * $res;
+        $$fref   = owptimeadd( $$lref, -$range );
+    }
+
+    my $nrecs      = 0;
+    my $datapoints = '';
+    my %owpvals;
+    my $oend;
+    while ( !$nrecs ) {
+        undef %owpvals;
+
+        # TODO: Set alpha_vals dynamically from web - or at least a config
+        my @alphas = [ .50, .95 ];
+        my $owdb = owdb_prep(
+            DBH         => $dbh,
+            RES         => $res,
+            TNAME       => $tname,
+            FIRST       => owptstampi( $$fref ),
+            LAST        => owptstampi( $$lref ),
+            ALPHAS      => @alphas,
+            OWHASH      => \%owpvals,
+            BUCKETWIDTH => $bucket_width
+        ) || die "Unable to init owp data request";
+
+        $nrecs = 0;
+        $oend  = 0;
+        my $tdate;
+        my $nbucks;
+
+        while ( $nbucks = owdb_fetch( OWDBH => $owdb ) ) {
+            $nrecs++;
+
+            # clip start time if before "first"
+            if ( $owpvals{'START'} < $$fref ) {
+                $tdate = owptstamppldatetime( $$fref );
+            }
+            else {
+                $tdate = owptstamppldatetime( $owpvals{'START'} );
+            }
+
+            # add missing data record, if oend != start
+            if ( $oend && ( $oend ne $owpvals{'START'} ) ) {
+                my $odate = owptstamppldatetime( $oend );
+                $datapoints .= "\t$odate\n";
+            }
+            $oend = $owpvals{'END'};
+
+            my ( $ffmt, $minfmt, $maxfmt, $a50fmt, $a95fmt );
+            my ( $minval, $maxval, $a50val, $a95val );
+            $minfmt = $maxfmt = $a50fmt = $a95fmt = "%8s";
+            $minval = $maxval = $a50val = $a95val = "XXXXXXXX";
+
+            $ffmt = "%08.6f";
+            if ( $owpvals{'MIN'} ) {
+                $minfmt = $ffmt;
+                $minval = $owpvals{'MIN'};
+                $minval = $ymin if ( $minval < $ymin );
+                $minval = $ymax if ( $minval > $ymax );
+            }
+            if ( $owpvals{'MAX'} ) {
+                $maxfmt = $ffmt;
+                $maxval = $owpvals{'MAX'};
+                $maxval = $ymin if ( $maxval < $ymin );
+                $maxval = $ymax if ( $maxval > $ymax );
+            }
+            if ( $owpvals{'ALPHA_0.500000'} ) {
+                $a50fmt = $ffmt;
+                $a50val = $owpvals{'ALPHA_0.500000'};
+                $a50val = $ymin if ( $a50val < $ymin );
+                $a50val = $ymax if ( $a50val > $ymax );
+            }
+            if ( $owpvals{'ALPHA_0.950000'} ) {
+                $a95fmt = $ffmt;
+                $a95val = $owpvals{'ALPHA_0.950000'};
+                $a95val = $ymin if ( $a95val < $ymin );
+                $a95val = $ymax if ( $a95val > $ymax );
+            }
+
+            # output this datapoint
+            $datapoints .= sprintf( "\t%s\t%d\t%d\t%d\t%08.6f\t$minfmt\t$a50fmt\t$a95fmt\t$maxfmt\n", owptstamppldatetime( $owpvals{'START'} ), $owpvals{'SENT'}, $owpvals{'LOST'}, $owpvals{'DUPS'}, $owpvals{'ERR'}, $minval, $a50val, $a95val, $maxval );
         }
 
-        my $range = owptime2time($$lref) - owptime2time($$fref);
-        my $i;
-        my $res=0;
-        my $lowest = $reslist[-1];
-
-        # search for highest resolution data that "fits" the width of the plot.
-        while ($_ = shift @reslist){
-                $i = $_+0;
-                next if($range/$i > $width);
-                $res = $_;
-                unshift @reslist, $_;
-                last;
+        # add missing data record for right edge of plot
+        if ( $oend > $$lref ) {
+            my $odate = owptstamppldatetime( $$lref );
+            $datapoints .= "\t$odate\n";
         }
 
-        if(!$res){
-                # time range is too wide to show, select the lowest resolution
-                # data we have, and adjust the start time so the data will fit
-                # in the time window.
-                $res = $lowest;
-                @reslist = ($res);
-                $range = $width * $res;
-                $$fref = uint64( owptimeadd($$lref,-$range) );
-        }
+        last if ( $nrecs );
+        last if ( !( $res = shift @reslist ) );
+    }
 
-        my $nrecs = 0;
-        my $datapoints = '';
-        my %owpvals;
-        my $oend;
-        while(!$nrecs){
-                undef %owpvals;
+    if ( !$nrecs ) {
 
-                # TODO: Set alpha_vals dynamically from web - or at least a config
-		my @alphas = [.50,.95];
-                my $owdb = owdb_prep(
-                        DBH     =>      $dbh,
-                        RES     =>      $res,
-                        TNAME   =>      $tname,
-                        FIRST   =>      owptstampi($$fref),
-                        LAST    =>      owptstampi($$lref),
-                        ALPHAS  =>      @alphas,
-                        OWHASH  =>      \%owpvals,
-                        BUCKETWIDTH     =>      $bucket_width
-                        ) || die "Unable to init owp data request";
+        # Nothing to plot.
+        return $nrecs;
+    }
 
-                $nrecs=0;
-                $oend = 0;
-                my $tdate;
-                my $nbucks;
+    my $firstdate = owptstamppldatetime( $$fref );
+    my $lastdate  = owptstamppldatetime( $$lref );
 
-                while($nbucks = owdb_fetch(OWDBH        => $owdb)){
-                        $nrecs++;
-                        # clip start time if before "first"
-                        if($owpvals{'START'} < $$fref){
-                                $tdate = owptstamppldatetime($$fref);
-                        }else{
-                                $tdate = owptstamppldatetime($owpvals{'START'});
-                        }
+    # TODO: Determine axis scaling based upon "resolution" above.
 
-                        # add missing data record, if oend != start
-                        if($oend && ($oend ne $owpvals{'START'})){
-                                my $odate = owptstamppldatetime($oend);
-                                $datapoints .= "\t$odate\n";
-                        }
-                        $oend = $owpvals{'END'};
+    my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday ) = owpgmtime( $$fref );
+    if ( $sec > 30 ) {
+        $min += 1;
+        $sec = 0;
+    }
+    else {
+        $sec = 30;
+    }
+    my $firststub = pldatetime( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday );
 
-			my ($ffmt,$minfmt,$maxfmt,$a50fmt,$a95fmt);
-			my ($minval,$maxval,$a50val,$a95val);
-			$minfmt = $maxfmt = $a50fmt = $a95fmt = "%8s";
-			$minval = $maxval = $a50val = $a95val = "XXXXXXXX";
+    ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday ) = owpgmtime( $$lref );
+    if ( $sec < 30 ) {
+        $sec = 0;
+    }
+    else {
+        $sec = 30;
+    }
+    my $laststub = pldatetime( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday );
 
-			$ffmt = "%08.6f";
-			if($owpvals{'MIN'}){
-				$minfmt = $ffmt;
-				$minval = $owpvals{'MIN'};
-				$minval = $ymin if($minval < $ymin);
-				$minval = $ymax if($minval > $ymax);
-			}
-			if($owpvals{'MAX'}){
-				$maxfmt = $ffmt;
-				$maxval = $owpvals{'MAX'};
-				$maxval = $ymin if($maxval < $ymin);
-				$maxval = $ymax if($maxval > $ymax);
-			}
-			if($owpvals{'ALPHA_0.500000'}){
-				$a50fmt = $ffmt;
-				$a50val = $owpvals{'ALPHA_0.500000'};
-				$a50val = $ymin if($a50val < $ymin);
-				$a50val = $ymax if($a50val > $ymax);
-			}
-			if($owpvals{'ALPHA_0.950000'}){
-				$a95fmt = $ffmt;
-				$a95val = $owpvals{'ALPHA_0.950000'};
-				$a95val = $ymin if($a95val < $ymin);
-				$a95val = $ymax if($a95val > $ymax);
-			}
-
-                        # output this datapoint
-                        $datapoints .= sprintf
-	                        ("\t%s\t%d\t%d\t%d\t%08.6f\t$minfmt\t$a50fmt\t$a95fmt\t$maxfmt\n",
-                                                owptstamppldatetime($owpvals{'START'}),
-                                                $owpvals{'SENT'},
-                                                $owpvals{'LOST'},
-                                                $owpvals{'DUPS'},
-                                                $owpvals{'ERR'},
-						$minval,
-						$a50val,
-						$a95val,
-						$maxval);
-                }
-
-                # add missing data record for right edge of plot
-                if($oend > $$lref){
-                        my $odate = owptstamppldatetime($$lref);
-                        $datapoints .= "\t$odate\n";
-                }
-
-                last if($nrecs);
-                last if(!($res = shift @reslist));
-        }
-
-        if(!$nrecs){
-                # Nothing to plot.
-                return $nrecs;
-        }
-
-        my $firstdate = owptstamppldatetime($$fref);
-        my $lastdate  = owptstamppldatetime($$lref);
-
-        # TODO: Determine axis scaling based upon "resolution" above.
-
-        my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday) = owpgmtime($$fref);
-        if($sec > 30){
-                $min += 1;
-                $sec = 0;
-        }else{
-                $sec = 30;
-        }
-        my $firststub = pldatetime($sec,$min,$hour,$mday,$mon,$year,$wday,$yday);
-
-        ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday) = owpgmtime($$lref);
-        if($sec < 30){
-                $sec = 0;
-        }else{
-                $sec = 30;
-        }
-        my $laststub = pldatetime($sec,$min,$hour,$mday,$mon,$year,$wday,$yday);
-
-#
-#
-# Here is the ploticus script - data gets appended on the end.
-print {$plfh} << "END_SCRIPT";
+    #
+    #
+    # Here is the ploticus script - data gets appended on the end.
+    print {$plfh} << "END_SCRIPT";
 #proc page
         pagesize: 7 4
         scale: 0.75
@@ -483,89 +454,93 @@ data:
 $datapoints
 END_SCRIPT
 
-return $nrecs;
+    return $nrecs;
 
 }
 
 #########################
 
-sub bwdb_plot_script{
+sub bwdb_plot_script {
 
-        my ($tname,$tstamp,$fref,$lref,$dbh,$plfh) = @_;
+    my ( $tname, $tstamp, $fref, $lref, $dbh, $plfh ) = @_;
 
-        my $sql;
-        my $sth;
-        my @row;
-        my $width = 500;
+    my $sql;
+    my $sth;
+    my @row;
+    my $width = 500;
 
-        my $range = owptime2time($$lref) - owptime2time($$fref);
-        my $i;
+    my $range = owptime2time( $$lref ) - owptime2time( $$fref );
+    my $i;
 
-	$sql = "SELECT time, throughput
+    $sql = "SELECT time, throughput
 		FROM BW_${tname}
 		WHERE
 			ti>? AND
 			ti<?
 		ORDER BY ti DESC";
 
-	$sth = $dbh->prepare($sql) ||
-		die "Prep:Select status $tname";
-	$sth->execute(owptstampi($$fref), owptstampi($$lref)) ||
-		die "Select status $tname";
+    $sth = $dbh->prepare( $sql )
+        || die "Prep:Select status $tname";
+    $sth->execute( owptstampi( $$fref ), owptstampi( $$lref ) )
+        || die "Select status $tname";
 
-        my $nrecs = 0;
-        my $datapoints = '';
+    my $nrecs      = 0;
+    my $datapoints = '';
 
-	my $time;
-	my $throughput;
-	my $min_throughput = 10000;
-	my $max_throughput = 0;
+    my $time;
+    my $throughput;
+    my $min_throughput = 10000;
+    my $max_throughput = 0;
 
-        while(1){
-		if((@row = $sth->fetchrow_array) && $row[0] && $row[1]){
-			$time = $row[0];
-			$throughput = sprintf "%.1f",($row[1] / 1000000);
-			$min_throughput = $min_throughput < $throughput ? $min_throughput : $throughput;
-			$max_throughput = $max_throughput > $throughput ? $max_throughput : $throughput;
-                        $nrecs++;
-		} else {
-	                last;
-		}
-
-		# output this datapoint
-		$datapoints .= sprintf ("\t%s\t%.1f\n", owptstamppldatetime($time), $throughput);
-	}
-	undef $sth;
-
-        if(!$nrecs){
-                # Nothing to plot.
-                return $nrecs;
+    while ( 1 ) {
+        if ( ( @row = $sth->fetchrow_array ) && $row[0] && $row[1] ) {
+            $time           = $row[0];
+            $throughput     = sprintf "%.1f", ( $row[1] / 1000000 );
+            $min_throughput = $min_throughput < $throughput ? $min_throughput : $throughput;
+            $max_throughput = $max_throughput > $throughput ? $max_throughput : $throughput;
+            $nrecs++;
+        }
+        else {
+            last;
         }
 
-        my $firstdate = owptstamppldatetime($$fref);
-        my $lastdate  = owptstamppldatetime($$lref);
+        # output this datapoint
+        $datapoints .= sprintf( "\t%s\t%.1f\n", owptstamppldatetime( $time ), $throughput );
+    }
+    undef $sth;
 
-        my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday) = owpgmtime($$fref);
-        if($sec > 30){
-                $min += 1;
-                $sec = 0;
-        }else{
-                $sec = 30;
-        }
-        my $firststub = pldatetime($sec,$min,$hour,$mday,$mon,$year,$wday,$yday);
+    if ( !$nrecs ) {
 
-        ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday) = owpgmtime($$lref);
-        if($sec < 30){
-                $sec = 0;
-        }else{
-                $sec = 30;
-        }
-        my $laststub = pldatetime($sec,$min,$hour,$mday,$mon,$year,$wday,$yday);
+        # Nothing to plot.
+        return $nrecs;
+    }
 
-#
-#
-# Here is the ploticus script - data gets appended on the end.
-print $plfh <<"END_SCRIPT";
+    my $firstdate = owptstamppldatetime( $$fref );
+    my $lastdate  = owptstamppldatetime( $$lref );
+
+    my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday ) = owpgmtime( $$fref );
+    if ( $sec > 30 ) {
+        $min += 1;
+        $sec = 0;
+    }
+    else {
+        $sec = 30;
+    }
+    my $firststub = pldatetime( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday );
+
+    ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday ) = owpgmtime( $$lref );
+    if ( $sec < 30 ) {
+        $sec = 0;
+    }
+    else {
+        $sec = 30;
+    }
+    my $laststub = pldatetime( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday );
+
+    #
+    #
+    # Here is the ploticus script - data gets appended on the end.
+    print $plfh <<"END_SCRIPT";
 #proc page
         scale: 1
         pagesize: 5 4
@@ -609,78 +584,81 @@ print $plfh <<"END_SCRIPT";
 data:$datapoints
 END_SCRIPT
 
-return $nrecs;
+    return $nrecs;
 
 }
 
 #########################
 
-sub bwdb_dist_plot_script{
+sub bwdb_dist_plot_script {
 
-        my ($tname,$tstamp,$fref,$lref,$dbh,$plfh) = @_;
+    my ( $tname, $tstamp, $fref, $lref, $dbh, $plfh ) = @_;
 
-        my $sql;
-        my $sth;
-        my @row;
-        my $width = 500;
+    my $sql;
+    my $sth;
+    my @row;
+    my $width = 500;
 
-        my $range = owptime2time($$lref) - owptime2time($$fref);
-        my $i;
+    my $range = owptime2time( $$lref ) - owptime2time( $$fref );
+    my $i;
 
-	$sql = "SELECT time, throughput
+    $sql = "SELECT time, throughput
 		FROM BW_${tname}
 		WHERE
 			ti>? AND
 			ti<?
 		ORDER BY throughput DESC";
 
-	$sth = $dbh->prepare($sql) ||
-		die "Prep:Select status $tname";
-	$sth->execute(owptstampi($$fref), owptstampi($$lref)) ||
-		die "Select status $tname";
+    $sth = $dbh->prepare( $sql )
+        || die "Prep:Select status $tname";
+    $sth->execute( owptstampi( $$fref ), owptstampi( $$lref ) )
+        || die "Select status $tname";
 
-        my $nrecs = 0;
-        my $datapoints = '';
+    my $nrecs      = 0;
+    my $datapoints = '';
 
-	my $throughput;
-	my @bucket;
-	my $index;
+    my $throughput;
+    my @bucket;
+    my $index;
 
-	for ($index = 0; $index <= 1000; $index++) {
-		$bucket[$index] = 0;
-	}
+    for ( $index = 0; $index <= 1000; $index++ ) {
+        $bucket[$index] = 0;
+    }
 
-	my $sample_number = 0;
-        while(1){
-		if((@row = $sth->fetchrow_array) && $row[0] && $row[1]){
-			$throughput = sprintf "%d",($row[1] / 1000000);
-			$bucket[$throughput] +=1;
-                        $nrecs++;
-		} else {
-	                last;
-		}
-
-	}
-	undef $sth;
-
-        if(!$nrecs){
-                # Nothing to plot.
-                return $nrecs;
+    my $sample_number = 0;
+    while ( 1 ) {
+        if ( ( @row = $sth->fetchrow_array ) && $row[0] && $row[1] ) {
+            $throughput = sprintf "%d", ( $row[1] / 1000000 );
+            $bucket[$throughput] += 1;
+            $nrecs++;
+        }
+        else {
+            last;
         }
 
-	my $min_bucket = 48 * 11 * 10 * 10; # Max tests is 48 * 11 * 10, so this is 10x bigger
-	my $max_bucket = 0;
-	for ($index = 1000; $index >= 0; $index--) {
-		# output this datapoint
-		$datapoints .= sprintf ("\t%d\t%d\n", $index, $bucket[$index]);
-		$min_bucket = $min_bucket < $bucket[$index] ? $min_bucket : $bucket[$index];
-		$max_bucket = $max_bucket > $bucket[$index] ? $max_bucket : $bucket[$index];
-	}
-	
-#
-#
-# Here is the ploticus script - data gets appended on the end.
-print $plfh <<"END_SCRIPT";
+    }
+    undef $sth;
+
+    if ( !$nrecs ) {
+
+        # Nothing to plot.
+        return $nrecs;
+    }
+
+    my $min_bucket = 48 * 11 * 10 * 10;    # Max tests is 48 * 11 * 10, so this is 10x bigger
+    my $max_bucket = 0;
+    for ( $index = 1000; $index >= 0; $index-- ) {
+
+        # output this datapoint
+        $datapoints .= sprintf( "\t%d\t%d\n", $index, $bucket[$index] );
+        $min_bucket = $min_bucket < $bucket[$index] ? $min_bucket : $bucket[$index];
+        $max_bucket = $max_bucket > $bucket[$index] ? $max_bucket : $bucket[$index];
+    }
+
+    #
+    #
+    # Here is the ploticus script - data gets appended on the end.
+    print $plfh <<"END_SCRIPT";
 #proc page
         scale: 1
         pagesize: 5 4
@@ -720,88 +698,92 @@ print $plfh <<"END_SCRIPT";
 data:$datapoints
 END_SCRIPT
 
-return $nrecs;
+    return $nrecs;
 
 }
 
 #########################
 
-sub ntpdb_loop_plot_script{
+sub ntpdb_loop_plot_script {
 
-        my ($tname,$tstamp,$fref,$lref,$dbh,$plfh) = @_;
-	warn "TABLE NAME: $tname\n";
+    my ( $tname, $tstamp, $fref, $lref, $dbh, $plfh ) = @_;
+    warn "TABLE NAME: $tname\n";
 
-        my $sql;
-        my $sth;
-        my @row;
-        my $width = 500;
+    my $sql;
+    my $sth;
+    my @row;
+    my $width = 500;
 
-        my $range = owptime2time($$lref) - owptime2time($$fref);
-        my $i;
+    my $range = owptime2time( $$lref ) - owptime2time( $$fref );
+    my $i;
 
-        $sql = "SELECT owp64time, offset, esterror 
+    $sql = "SELECT owp64time, offset, esterror 
                 FROM ${tname}
                 WHERE
                         owp32time >? AND
                         owp32time <?
                 ORDER BY owp32time DESC";
 
-        $sth = $dbh->prepare($sql) ||
-                die "Prep:Select status $tname";
-        $sth->execute(owptstampi($$fref), owptstampi($$lref)) ||
-                die "Select status $tname";
+    $sth = $dbh->prepare( $sql )
+        || die "Prep:Select status $tname";
+    $sth->execute( owptstampi( $$fref ), owptstampi( $$lref ) )
+        || die "Select status $tname";
 
-        my $nrecs = 0;
-        my $datapoints = '';
+    my $nrecs      = 0;
+    my $datapoints = '';
 
-        my $time;
-        my $offset;
-	my $esterror;
+    my $time;
+    my $offset;
+    my $esterror;
 
-        while(1){
-                if((@row = $sth->fetchrow_array) && $row[0] && $row[1] && $row[2]){
-                        $time = $row[0];
-                        $offset = sprintf "%.1f",($row[1] * 1000000);
-			$esterror = sprintf "%.1f",($row[2] * 1000000);
-                        $nrecs++;
-                } else {
-                        last;
-                }
-
-                # output this datapoint
-                $datapoints .= sprintf ("\t%s\t%.1f\t%.1f\n", owptstamppldatetime($time), $offset, $esterror);
+    while ( 1 ) {
+        if ( ( @row = $sth->fetchrow_array ) && $row[0] && $row[1] && $row[2] ) {
+            $time     = $row[0];
+            $offset   = sprintf "%.1f", ( $row[1] * 1000000 );
+            $esterror = sprintf "%.1f", ( $row[2] * 1000000 );
+            $nrecs++;
         }
-        undef $sth;
-
-        if(!$nrecs){
-                # Nothing to plot.
-                return $nrecs;
+        else {
+            last;
         }
 
-        my $firstdate = owptstamppldatetime($$fref);
-        my $lastdate  = owptstamppldatetime($$lref);
+        # output this datapoint
+        $datapoints .= sprintf( "\t%s\t%.1f\t%.1f\n", owptstamppldatetime( $time ), $offset, $esterror );
+    }
+    undef $sth;
 
-        my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday) = owpgmtime($$fref);
-        if($sec > 30){
-                $min += 1;
-                $sec = 0;
-        }else{
-                $sec = 30;
-        }
-        my $firststub = pldatetime($sec,$min,$hour,$mday,$mon,$year,$wday,$yday);
+    if ( !$nrecs ) {
 
-        ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday) = owpgmtime($$lref);
-        if($sec < 30){
-                $sec = 0;
-        }else{
-                $sec = 30;
-        }
-        my $laststub = pldatetime($sec,$min,$hour,$mday,$mon,$year,$wday,$yday);
+        # Nothing to plot.
+        return $nrecs;
+    }
 
-#
-#
-# Here is the ploticus script - data gets appended on the end.
-print $plfh <<"END_SCRIPT";
+    my $firstdate = owptstamppldatetime( $$fref );
+    my $lastdate  = owptstamppldatetime( $$lref );
+
+    my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday ) = owpgmtime( $$fref );
+    if ( $sec > 30 ) {
+        $min += 1;
+        $sec = 0;
+    }
+    else {
+        $sec = 30;
+    }
+    my $firststub = pldatetime( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday );
+
+    ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday ) = owpgmtime( $$lref );
+    if ( $sec < 30 ) {
+        $sec = 0;
+    }
+    else {
+        $sec = 30;
+    }
+    my $laststub = pldatetime( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday );
+
+    #
+    #
+    # Here is the ploticus script - data gets appended on the end.
+    print $plfh <<"END_SCRIPT";
 #proc page
         scale: 1
         pagesize: 5 4
@@ -866,87 +848,91 @@ print $plfh <<"END_SCRIPT";
 data:$datapoints
 END_SCRIPT
 
-return $nrecs;
+    return $nrecs;
 
 }
 
 #########################
 
-sub ntpdb_peer_plot_script{
+sub ntpdb_peer_plot_script {
 
-        my ($tname,$tstamp,$fref,$lref,$dbh,$plfh) = @_;
+    my ( $tname, $tstamp, $fref, $lref, $dbh, $plfh ) = @_;
 
-        my $sql;
-        my $sth;
-        my @row;
-        my $width = 500;
+    my $sql;
+    my $sth;
+    my @row;
+    my $width = 500;
 
-        my $range = owptime2time($$lref) - owptime2time($$fref);
-        my $i;
+    my $range = owptime2time( $$lref ) - owptime2time( $$fref );
+    my $i;
 
-        $sql = "SELECT owp64time, offset, variance
+    $sql = "SELECT owp64time, offset, variance
                 FROM ${tname}
                 WHERE
                         owp32time >? AND
                         owp32time <?
                 ORDER BY owp32time DESC";
 
-        $sth = $dbh->prepare($sql) ||
-                die "Prep:Select status $tname";
-        $sth->execute(owptstampi($$fref), owptstampi($$lref)) ||
-                die "Select status $tname";
+    $sth = $dbh->prepare( $sql )
+        || die "Prep:Select status $tname";
+    $sth->execute( owptstampi( $$fref ), owptstampi( $$lref ) )
+        || die "Select status $tname";
 
-        my $nrecs = 0;
-        my $datapoints = '';
+    my $nrecs      = 0;
+    my $datapoints = '';
 
-        my $time;
-        my $offset;
-	my $variance;
+    my $time;
+    my $offset;
+    my $variance;
 
-        while(1){
-                if((@row = $sth->fetchrow_array) && $row[0] && $row[1] && $row[2]){
-                        $time = $row[0];
-                        $offset = sprintf "%.1f",($row[1] * 1000000);
-			$variance = sprintf "%.1f",($row[2] * 1000000);
-                        $nrecs++;
-                } else {
-                        last;
-                }
-
-                # output this datapoint
-                $datapoints .= sprintf ("\t%s\t%.1f\t%.1f\n", owptstamppldatetime($time), $offset, $variance);
+    while ( 1 ) {
+        if ( ( @row = $sth->fetchrow_array ) && $row[0] && $row[1] && $row[2] ) {
+            $time     = $row[0];
+            $offset   = sprintf "%.1f", ( $row[1] * 1000000 );
+            $variance = sprintf "%.1f", ( $row[2] * 1000000 );
+            $nrecs++;
         }
-        undef $sth;
-
-        if(!$nrecs){
-                # Nothing to plot.
-                return $nrecs;
+        else {
+            last;
         }
 
-        my $firstdate = owptstamppldatetime($$fref);
-        my $lastdate  = owptstamppldatetime($$lref);
+        # output this datapoint
+        $datapoints .= sprintf( "\t%s\t%.1f\t%.1f\n", owptstamppldatetime( $time ), $offset, $variance );
+    }
+    undef $sth;
 
-        my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday) = owpgmtime($$fref);
-        if($sec > 30){
-                $min += 1;
-                $sec = 0;
-        }else{
-                $sec = 30;
-        }
-        my $firststub = pldatetime($sec,$min,$hour,$mday,$mon,$year,$wday,$yday);
+    if ( !$nrecs ) {
 
-        ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday) = owpgmtime($$lref);
-        if($sec < 30){
-                $sec = 0;
-        }else{
-                $sec = 30;
-        }
-        my $laststub = pldatetime($sec,$min,$hour,$mday,$mon,$year,$wday,$yday);
+        # Nothing to plot.
+        return $nrecs;
+    }
 
-#
-#
-# Here is the ploticus script - data gets appended on the end.
-print $plfh <<"END_SCRIPT";
+    my $firstdate = owptstamppldatetime( $$fref );
+    my $lastdate  = owptstamppldatetime( $$lref );
+
+    my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday ) = owpgmtime( $$fref );
+    if ( $sec > 30 ) {
+        $min += 1;
+        $sec = 0;
+    }
+    else {
+        $sec = 30;
+    }
+    my $firststub = pldatetime( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday );
+
+    ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday ) = owpgmtime( $$lref );
+    if ( $sec < 30 ) {
+        $sec = 0;
+    }
+    else {
+        $sec = 30;
+    }
+    my $laststub = pldatetime( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday );
+
+    #
+    #
+    # Here is the ploticus script - data gets appended on the end.
+    print $plfh <<"END_SCRIPT";
 #proc page
         scale: 1
         pagesize: 5 4
@@ -1006,109 +992,114 @@ print $plfh <<"END_SCRIPT";
 data:$datapoints
 END_SCRIPT
 
-return $nrecs;
+    return $nrecs;
 }
 
 #########################
 
-sub ntpdb_color_per_peer_plot_script{
-	my ($tname,$tstamp,$fref,$lref,$dbh,$plfh) = @_;
+sub ntpdb_color_per_peer_plot_script {
+    my ( $tname, $tstamp, $fref, $lref, $dbh, $plfh ) = @_;
 
-        my $sql;
-        my $sth;
-        my @row;
-        my $width = 500;
+    my $sql;
+    my $sth;
+    my @row;
+    my $width = 500;
 
-        my $range = owptime2time($$lref) - owptime2time($$fref);
-        my $i;
+    my $range = owptime2time( $$lref ) - owptime2time( $$fref );
+    my $i;
 
-        $sql = "SELECT owp64time, offset, variance, peeraddrid
+    $sql = "SELECT owp64time, offset, variance, peeraddrid
                 FROM ${tname}
                 WHERE
                         owp32time >? AND
                         owp32time <?
                 ORDER BY owp32time DESC";
-		#AND peeraddrid = 10";
 
-        $sth = $dbh->prepare($sql) ||
-                die "Prep:Select status $tname";
-        $sth->execute(owptstampi($$fref), owptstampi($$lref)) ||
-                die "Select status $tname";
+    #AND peeraddrid = 10";
 
-        my $nrecs = 0;
-        my $datapoints = '';
+    $sth = $dbh->prepare( $sql )
+        || die "Prep:Select status $tname";
+    $sth->execute( owptstampi( $$fref ), owptstampi( $$lref ) )
+        || die "Select status $tname";
 
-        my $time;
-        my $offset;
-        my $variance;
-	my $peeraddrid;
+    my $nrecs      = 0;
+    my $datapoints = '';
 
-        while(1){
-                if((@row = $sth->fetchrow_array) && $row[0] && $row[1] && $row[2] && $row[3]){
-                        $time = $row[0];
-                        $offset = sprintf "%.1f",($row[1] * 1000000);
-                        $variance = sprintf "%.1f",($row[2] * 1000000);
-			$peeraddrid = $row[3];
-                        $nrecs++;
-                } else {
-                        last;
-                }
+    my $time;
+    my $offset;
+    my $variance;
+    my $peeraddrid;
 
- 		# logic to determine which column to print the peeraddrid field for the ploticus data file
-                my $max_peeraddrid = 40;
-                my $offset_id;      
-                my $sprintf_str="";      
-                my $b4_index;
-                my $after_index;          
-            
-                $sprintf_str = sprintf("%s%s",$sprintf_str,"\t\%s\t\%.1f"); # owp64time and variance
-
-                $offset_id = $peeraddrid - 7; # -7 because the starting peeraddrid in the table is 8
-                for ($b4_index=1; $b4_index < $offset_id; $b4_index++) {
-                        $sprintf_str = sprintf("%s%s",$sprintf_str,"\tNA");
-                }
-
-                $sprintf_str = sprintf("%s%s",$sprintf_str,"\t\%.1f");
-
-                for ($after_index=$offset_id+1; $after_index <= $max_peeraddrid; $after_index++) {
-                        $sprintf_str = sprintf("%s%s",$sprintf_str,"\tNA");
-                }
-                $sprintf_str = sprintf("%s%s",$sprintf_str,"\n");
-
-                # output this datapoint
-                $datapoints .= sprintf ("$sprintf_str",owptstamppldatetime($time), $variance, $offset);
+    while ( 1 ) {
+        if ( ( @row = $sth->fetchrow_array ) && $row[0] && $row[1] && $row[2] && $row[3] ) {
+            $time       = $row[0];
+            $offset     = sprintf "%.1f", ( $row[1] * 1000000 );
+            $variance   = sprintf "%.1f", ( $row[2] * 1000000 );
+            $peeraddrid = $row[3];
+            $nrecs++;
         }
-        undef $sth;
-
-        if(!$nrecs){
-                # Nothing to plot.
-                return $nrecs;
+        else {
+            last;
         }
 
-        my $firstdate = owptstamppldatetime($$fref);
-        my $lastdate  = owptstamppldatetime($$lref);
+        # logic to determine which column to print the peeraddrid field for the ploticus data file
+        my $max_peeraddrid = 40;
+        my $offset_id;
+        my $sprintf_str = "";
+        my $b4_index;
+        my $after_index;
 
-        my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday) = owpgmtime($$fref);
-        if($sec > 30){
-                $min += 1;
-                $sec = 0;
-        }else{
-                $sec = 30;
+        $sprintf_str = sprintf( "%s%s", $sprintf_str, "\t\%s\t\%.1f" );    # owp64time and variance
+
+        $offset_id = $peeraddrid - 7;                                      # -7 because the starting peeraddrid in the table is 8
+        for ( $b4_index = 1; $b4_index < $offset_id; $b4_index++ ) {
+            $sprintf_str = sprintf( "%s%s", $sprintf_str, "\tNA" );
         }
-        my $firststub = pldatetime($sec,$min,$hour,$mday,$mon,$year,$wday,$yday);
 
-        ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday) = owpgmtime($$lref);
-        if($sec < 30){
-                $sec = 0;
-        }else{
-                $sec = 30;
+        $sprintf_str = sprintf( "%s%s", $sprintf_str, "\t\%.1f" );
+
+        for ( $after_index = $offset_id + 1; $after_index <= $max_peeraddrid; $after_index++ ) {
+            $sprintf_str = sprintf( "%s%s", $sprintf_str, "\tNA" );
         }
-        my $laststub = pldatetime($sec,$min,$hour,$mday,$mon,$year,$wday,$yday);
+        $sprintf_str = sprintf( "%s%s", $sprintf_str, "\n" );
 
-#
-#
-# Here is the ploticus script - data gets appended on the end.
-print $plfh <<"END_SCRIPT";
+        # output this datapoint
+        $datapoints .= sprintf( "$sprintf_str", owptstamppldatetime( $time ), $variance, $offset );
+    }
+    undef $sth;
+
+    if ( !$nrecs ) {
+
+        # Nothing to plot.
+        return $nrecs;
+    }
+
+    my $firstdate = owptstamppldatetime( $$fref );
+    my $lastdate  = owptstamppldatetime( $$lref );
+
+    my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday ) = owpgmtime( $$fref );
+    if ( $sec > 30 ) {
+        $min += 1;
+        $sec = 0;
+    }
+    else {
+        $sec = 30;
+    }
+    my $firststub = pldatetime( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday );
+
+    ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday ) = owpgmtime( $$lref );
+    if ( $sec < 30 ) {
+        $sec = 0;
+    }
+    else {
+        $sec = 30;
+    }
+    my $laststub = pldatetime( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday );
+
+    #
+    #
+    # Here is the ploticus script - data gets appended on the end.
+    print $plfh <<"END_SCRIPT";
 #proc page         
         scale: 1 
         pagesize: 8 14
@@ -1689,55 +1680,56 @@ print $plfh <<"END_SCRIPT";
 data:$datapoints
 END_SCRIPT
 
-return $nrecs;
+    return $nrecs;
 
 }
 
 #########################
 
-sub trdb_plot_script{
+sub trdb_plot_script {
 
-        my ($tname,$tstamp,$fref,$lref,$dbh,$plfh) = @_;
+    my ( $tname, $tstamp, $fref, $lref, $dbh, $plfh ) = @_;
 
-        my $sql;
-        my $sth;
-        my @row;
-	my $sql2;
-	my $sth2;
-	my @row2;
-        my $width = 500;
+    my $sql;
+    my $sth;
+    my @row;
+    my $sql2;
+    my $sth2;
+    my @row2;
+    my $width = 500;
 
-        my $range = owptime2time($$lref) - owptime2time($$fref);
-        my $i;
+    my $range = owptime2time( $$lref ) - owptime2time( $$fref );
+    my $i;
 
-        $sql = "SELECT distinct routeid 
+    $sql = "SELECT distinct routeid 
                 FROM $tname
                 WHERE
                         timestamp>? AND
                         timestamp<?
                 ";
 
-        $sth = $dbh->prepare($sql) ||
-                die "Prep:Select status $tname";
-        $sth->execute(owptstampi($$fref), owptstampi($$lref)) ||
-                die "Select status $tname";
+    $sth = $dbh->prepare( $sql )
+        || die "Prep:Select status $tname";
+    $sth->execute( owptstampi( $$fref ), owptstampi( $$lref ) )
+        || die "Select status $tname";
 
-        my $nrecs = 0;
-        my $datapoints = '';
+    my $nrecs      = 0;
+    my $datapoints = '';
 
-        my $routeid;
-	my $ftime;
-	my $ltime;
+    my $routeid;
+    my $ftime;
+    my $ltime;
 
-        while(1){
-		if((@row = $sth->fetchrow_array) && $row[0]){
-                       $routeid = $row[0];
-                       $nrecs++;
-                } else {
-			last;
-		}
+    while ( 1 ) {
+        if ( ( @row = $sth->fetchrow_array ) && $row[0] ) {
+            $routeid = $row[0];
+            $nrecs++;
+        }
+        else {
+            last;
+        }
 
-		$sql2 = "SELECT min(timestamp), max(timestamp)
+        $sql2 = "SELECT min(timestamp), max(timestamp)
                 	FROM $tname
                 	WHERE
 				routeid = $routeid AND
@@ -1745,51 +1737,55 @@ sub trdb_plot_script{
                         	timestamp<?
                 	";
 
-        	$sth2 = $dbh->prepare($sql2) ||
-                	die "Prep:Select status $tname";
-        	$sth2->execute(owptstampi($$fref), owptstampi($$lref)) ||
-                	die "Select status $tname";
-		
-               	#if((@row2 = $sth2->fetchrow_array) && $row2[0] && $row2[1]){
-        	if(@row2 = $sth2->fetchrow_array){
-                        $ftime =  ts_owptstamppldatetime($row2[0]);
-                       	$ltime =  ts_owptstamppldatetime($row2[1]);
-		}
-                # output this datapoint
-                $datapoints .= sprintf ("\t%d\t%s\t%s\n", $routeid, $ftime,$ltime);
-        }
-        undef $sth;
-	undef $sth2;
+        $sth2 = $dbh->prepare( $sql2 )
+            || die "Prep:Select status $tname";
+        $sth2->execute( owptstampi( $$fref ), owptstampi( $$lref ) )
+            || die "Select status $tname";
 
-        if(!$nrecs){
-                # Nothing to plot.
-                return $nrecs;
+        #if((@row2 = $sth2->fetchrow_array) && $row2[0] && $row2[1]){
+        if ( @row2 = $sth2->fetchrow_array ) {
+            $ftime = ts_owptstamppldatetime( $row2[0] );
+            $ltime = ts_owptstamppldatetime( $row2[1] );
         }
 
-        my $firstdate = owptstamppldatetime($$fref);
-        my $lastdate  = owptstamppldatetime($$lref);
+        # output this datapoint
+        $datapoints .= sprintf( "\t%d\t%s\t%s\n", $routeid, $ftime, $ltime );
+    }
+    undef $sth;
+    undef $sth2;
 
-        my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday) = owpgmtime($$fref);
-        if($sec > 30){
-                $min += 1;
-                $sec = 0;
-        }else{
-                $sec = 30;
-        }
-        my $firststub = pldatetime($sec,$min,$hour,$mday,$mon,$year,$wday,$yday);
+    if ( !$nrecs ) {
 
-        ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday) = owpgmtime($$lref);
-        if($sec < 30){
-                $sec = 0;
-        }else{
-                $sec = 30;
-        }
-        my $laststub = pldatetime($sec,$min,$hour,$mday,$mon,$year,$wday,$yday);
+        # Nothing to plot.
+        return $nrecs;
+    }
 
-#
-#
-# Here is the ploticus script - data gets appended on the end.
-print $plfh <<"END_SCRIPT";
+    my $firstdate = owptstamppldatetime( $$fref );
+    my $lastdate  = owptstamppldatetime( $$lref );
+
+    my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday ) = owpgmtime( $$fref );
+    if ( $sec > 30 ) {
+        $min += 1;
+        $sec = 0;
+    }
+    else {
+        $sec = 30;
+    }
+    my $firststub = pldatetime( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday );
+
+    ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday ) = owpgmtime( $$lref );
+    if ( $sec < 30 ) {
+        $sec = 0;
+    }
+    else {
+        $sec = 30;
+    }
+    my $laststub = pldatetime( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday );
+
+    #
+    #
+    # Here is the ploticus script - data gets appended on the end.
+    print $plfh <<"END_SCRIPT";
 #proc page
         scale: 1
         pagesize: 4 4
@@ -1830,22 +1826,21 @@ print $plfh <<"END_SCRIPT";
 data:$datapoints
 END_SCRIPT
 
-return $nrecs;
+    return $nrecs;
 
 }
 
-sub ts_owptstamppldatetime{
-        my $tmpTs = shift @_;
-        my @dTime = gmtime($tmpTs - JAN_1970);
-        my $dHour = $dTime[2];
-        my $dMinute = $dTime[1];
-        my $dSecond = $dTime[0];
-        my $dMonth = $dTime[4] + 1;
-        my $dDay = $dTime[3];
-        my $dYear =  $dTime[5] + 1900;
-        my $tmpTsStr = sprintf('%04d-%02d-%02d.%02d:%02d:%02d',
-                                $dYear,$dMonth,$dDay,$dHour,$dMinute,$dSecond);
-        return $tmpTsStr;
+sub ts_owptstamppldatetime {
+    my $tmpTs    = shift @_;
+    my @dTime    = gmtime( $tmpTs - JAN_1970 );
+    my $dHour    = $dTime[2];
+    my $dMinute  = $dTime[1];
+    my $dSecond  = $dTime[0];
+    my $dMonth   = $dTime[4] + 1;
+    my $dDay     = $dTime[3];
+    my $dYear    = $dTime[5] + 1900;
+    my $tmpTsStr = sprintf( '%04d-%02d-%02d.%02d:%02d:%02d', $dYear, $dMonth, $dDay, $dHour, $dMinute, $dSecond );
+    return $tmpTsStr;
 }
 
 =pod
@@ -2335,3 +2330,44 @@ sub xfigTimedTree() {
 
 1;
 
+__END__
+
+=head1 SEE ALSO
+
+L<Exporter>, L<FindBin>, L<POSIX>, L<Fcntl>, L<FileHandle>, L<OWP>,
+L<OWP::Utils>, L<CGI::Carp>, L<File::Basename>
+
+To join the 'perfSONAR Users' mailing list, please visit:
+
+  https://mail.internet2.edu/wws/info/perfsonar-ps-users
+
+The perfSONAR-PS subversion repository is located at:
+
+  http://anonsvn.internet2.edu/svn/perfSONAR-PS/trunk
+
+Questions and comments can be directed to the author, or the mailing list.
+Bugs, feature requests, and improvements can be directed here:
+
+  http://code.google.com/p/perfsonar-ps/issues/list
+
+=head1 VERSION
+
+$Id: owdb.pm 3831 2010-01-15 21:02:23Z alake $
+
+=head1 AUTHOR
+
+Jeff Boote, boote@internet2.edu
+
+=head1 LICENSE
+
+You should have received a copy of the Internet2 Intellectual Property Framework
+along with this software.  If not, see
+<http://www.internet2.edu/membership/ip.html>
+
+=head1 COPYRIGHT
+
+Copyright (c) 2007-2009, Internet2
+
+All rights reserved.
+
+=cut
