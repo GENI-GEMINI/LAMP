@@ -52,25 +52,17 @@ sub new {
     $self->{MAP}{"part_max_used"}{"type"}       = "node";
     $self->{MAP}{"part_max_used"}{"ds"}         = "sum";
     $self->{MAP}{"bytes_in"}{"eventTypes"}      = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/bytes/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/bytes/2.0", "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" ];
-
-    #    $self->{MAP}{"bytes_in"}{"type"} = "interface";
-    $self->{MAP}{"bytes_in"}{"type"}        = "node";
-    $self->{MAP}{"bytes_in"}{"ds"}          = "sum";
-    $self->{MAP}{"bytes_out"}{"eventTypes"} = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/bytes/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/bytes/2.0", "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" ];
-
-    #    $self->{MAP}{"bytes_out"}{"type"} = "interface";
-    $self->{MAP}{"bytes_out"}{"type"}     = "node";
-    $self->{MAP}{"bytes_out"}{"ds"}       = "sum";
-    $self->{MAP}{"pkts_in"}{"eventTypes"} = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/packets/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/packets/2.0" ];
-
-    #    $self->{MAP}{"pkts_in"}{"type"} = "interface";
-    $self->{MAP}{"pkts_in"}{"type"}        = "node";
-    $self->{MAP}{"pkts_in"}{"ds"}          = "sum";
-    $self->{MAP}{"pkts_out"}{"eventTypes"} = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/packets/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/packets/2.0" ];
-
-    #    $self->{MAP}{"pkts_out"}{"type"} = "interface";
-    $self->{MAP}{"pkts_out"}{"type"}           = "node";
-    $self->{MAP}{"pkts_out"}{"ds"}             = "sum";
+    $self->{MAP}{"bytes_in"}{"type"}            = "node";
+    $self->{MAP}{"bytes_in"}{"ds"}              = "sum";
+    $self->{MAP}{"bytes_out"}{"eventTypes"}     = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/bytes/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/bytes/2.0", "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" ];
+    $self->{MAP}{"bytes_out"}{"type"}           = "node";
+    $self->{MAP}{"bytes_out"}{"ds"}             = "sum";
+    $self->{MAP}{"pkts_in"}{"eventTypes"}       = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/packets/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/packets/2.0" ];
+    $self->{MAP}{"pkts_in"}{"type"}             = "node";
+    $self->{MAP}{"pkts_in"}{"ds"}               = "sum";
+    $self->{MAP}{"pkts_out"}{"eventTypes"}      = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/packets/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/packets/2.0" ];
+    $self->{MAP}{"pkts_out"}{"type"}            = "node";
+    $self->{MAP}{"pkts_out"}{"ds"}              = "sum";
     $self->{MAP}{"proc_total"}{"eventTypes"}   = [ "http://ggf.org/ns/nmwg/tools/ganglia/cpu/process/total/2.0", "http://ggf.org/ns/nmwg/characteristic/cpu/process/total/2.0" ];
     $self->{MAP}{"proc_total"}{"type"}         = "node";
     $self->{MAP}{"proc_total"}{"ds"}           = "sum";
@@ -132,6 +124,26 @@ sub new {
     $self->{MAP}{"swap_total"}{"type"}         = "node";
     $self->{MAP}{"swap_total"}{"ds"}           = "sum";
 
+    $self->{TEMPLATES}{"bytes_in_\\w+"}{"eventTypes"}      = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/bytes/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/bytes/2.0", "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" ];
+    $self->{TEMPLATES}{"bytes_in_\\w+"}{"type"}            = "interface";
+    $self->{TEMPLATES}{"bytes_in_\\w+"}{"ds"}              = "sum";
+    $self->{TEMPLATES}{"bytes_in_\\w+"}{"ifNameRegex"}     = "bytes_in_(\\w+)";
+    
+    $self->{TEMPLATES}{"bytes_out_\\w+"}{"eventTypes"}     = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/bytes/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/bytes/2.0", "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" ];
+    $self->{TEMPLATES}{"bytes_out_\\w+"}{"type"}           = "interface";
+    $self->{TEMPLATES}{"bytes_out_\\w+"}{"ds"}             = "sum";
+    $self->{TEMPLATES}{"bytes_out_\\w+"}{"ifNameRegex"}    = "bytes_out_(\\w+)";
+    
+    $self->{TEMPLATES}{"pkts_in_\\w+"}{"eventTypes"}       = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/packets/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/packets/2.0" ];
+    $self->{TEMPLATES}{"pkts_in_\\w+"}{"type"}             = "interface";
+    $self->{TEMPLATES}{"pkts_in_\\w+"}{"ds"}               = "sum";
+    $self->{TEMPLATES}{"pkts_in_\\w+"}{"ifNameRegex"}      = "pkts_in_(\\w+)";
+    
+    $self->{TEMPLATES}{"pkts_out_\\w+"}{"eventTypes"}      = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/packets/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/packets/2.0" ];
+    $self->{TEMPLATES}{"pkts_out_\\w+"}{"type"}            = "interface";
+    $self->{TEMPLATES}{"pkts_out_\\w+"}{"ds"}              = "sum";
+    $self->{TEMPLATES}{"pkts_out_\\w+"}{"ifNameRegex"}     = "pkts_out_(\\w+)";
+    
     if ( exists $parameters->{conf} and $parameters->{conf} ) {
         $self->{CONF} = $parameters->{conf};
     }
@@ -293,7 +305,7 @@ sub openDB {
     $config{"gridname"} = "unspecified" unless defined $config{"gridname"};
 
     # gmetad host
-    $config{"host"} = "localhost";
+    $config{"gmetad_host"} = "localhost" unless defined $config{"gmetad_host"};
 
     # gmetad port (requests for XML)
     $config{"xml_port"} = "8651" unless defined $config{"xml_port"};
@@ -304,7 +316,7 @@ sub openDB {
     # lcoation of RRD files
     $config{"rrd_rootdir"} = "/var/lib/ganglia/rrds" unless defined $config{"rrd_rootdir"};
 
-    my @params = ( $config{"host"}, $config{"interactive_port"} );
+    my @params = ( $config{"gmetad_host"}, $config{"interactive_port"} );
     my $exp = Expect->spawn( $self->{TELNET}, @params ) or die "Cannot spawn $self->{TELNET}: $!\n";
     $exp->log_stdout( 0 );
     $exp->send( "/" . $config{"gridname"} . "\n" );
@@ -353,41 +365,55 @@ sub openDB {
         foreach my $cluster ( keys %{ $struct{$grid} } ) {
             foreach my $host ( keys %{ $struct{$grid}{$cluster} } ) {
                 foreach my $metric ( keys %{ $struct{$grid}{$cluster}{$host} } ) {
-                    if ( exists $self->{MAP}{ $struct{$grid}{$cluster}{$host}{$metric}{"NAME"} } ) {
+                    my $metric_name = $struct{$grid}{$cluster}{$host}{$metric}{"NAME"};
+                    
+                    my $meta = undef;
+                    if ( exists $self->{MAP}{ $metric_name } ) {
+                        $meta = $self->{MAP}{ $metric_name };
+                    } 
+                    else {
+                        for my $template ( keys %{ $self->{TEMPLATES} } ) {
+                            if ( $metric_name =~ m/$template/ ) {
+                                $meta = $self->{TEMPLATES}{ $template };
+                                last;
+                            }
+                        }
+                    }
+                    
+                    if ( $meta ) {
                         $self->{STORE} .= "  <nmwg:metadata xmlns:nmwg=\"http://ggf.org/ns/nmwg/base/2.0/\" id=\"metadata." . $c . "\">\n";
                         $self->{STORE} .= "    <ganglia:subject xmlns:ganglia=\"http://ggf.org/ns/nmwg/tools/ganglia/2.0/\" id=\"subject\">\n";
 
-                        if ( $self->{MAP}{ $struct{$grid}{$cluster}{$host}{$metric}{"NAME"} }{"type"} eq "node" ) {
+                        if ( $meta->{"type"} eq "node" ) {
                             $self->{STORE} .= "      <nmwgt3:node xmlns:nmwgt3=\"http://ggf.org/ns/nmwg/topology/base/3.0/\" id=\"node\">\n";
                             $self->{STORE} .= "        <nmwgt3:name>" . $grid . "-" . $cluster . "-" . $host . "</nmwgt3:name>\n";
-                            $self->{STORE} .= "        <nmwgt3:hostName>" . $struct{$grid}{$cluster}{$host}{"host_info"}{"HOSTNAME"} . "</nmwgt3:hostName>\n" if $struct{$grid}{$cluster}{$host}{"host_info"}{"HOSTNAME"};
-
-                            #$self->{STORE} .= "        <nmwgt3:description></nmwgt3:description>\n";
-                            $self->{STORE} .= "        <nmwgt3:cpu>" . $struct{$grid}{$cluster}{$host}{"machine_type"}{"VALUE"} . "</nmwgt3:cpu>\n";
+                            $self->{STORE} .= "        <nmwgt3:hostName>" . $struct{$grid}{$cluster}{$host}{"host_info"}{"HOSTNAME"} . "</nmwgt3:hostName>\n" if exists $struct{$grid}{$cluster}{$host}{"host_info"}{"HOSTNAME"};
+                            $self->{STORE} .= "        <nmwgt3:cpu>" . $struct{$grid}{$cluster}{$host}{"machine_type"}{"VALUE"} . "</nmwgt3:cpu>\n" if exists $struct{$grid}{$cluster}{$host}{"machine_type"};
                             $self->{STORE} .= "        <nmwgt3:operSys>" . $struct{$grid}{$cluster}{$host}{"os_name"}{"VALUE"} . " " . $struct{$grid}{$cluster}{$host}{"os_release"}{"VALUE"} . "</nmwgt3:operSys>\n";
                             $self->{STORE} .= "      </nmwgt3:node>\n";
                         }
-                        else {
+                        elsif ( $meta->{"type"} eq "interface" ) {
                             $self->{STORE} .= "      <nmwgt:interface xmlns:nmwgt=\"http://ggf.org/ns/nmwg/topology/2.0/\">\n";
-                            $self->{STORE} .= "        <nmwgt:ipAddress>" . $struct{$grid}{$cluster}{$host}{"host_info"}{"IPADDRESS"} . "</nmwgt:ipAddress>\n" if $struct{$grid}{$cluster}{$host}{"host_info"}{"IPADDRESS"};
                             $self->{STORE} .= "        <nmwgt:hostName>" . $struct{$grid}{$cluster}{$host}{"host_info"}{"HOSTNAME"} . "</nmwgt:hostName>\n" if $struct{$grid}{$cluster}{$host}{"host_info"}{"HOSTNAME"};
-                            if ( $struct{$grid}{$cluster}{$host}{$metric}{"NAME"} =~ m/.*in$/ ) {
+                            
+                            $metric_name =~ m/$meta->{ifNameRegex}/;
+                            $self->{STORE} .= "        <nmwgt:ifName>" . $1 . "</nmwgt:ifName>\n";
+                            
+                            if ( $metric_name =~ m/.*_in(_.*)?$/ ) {
                                 $self->{STORE} .= "        <nmwgt:direction>in</nmwgt:direction>\n";
                             }
-                            elsif ( $struct{$grid}{$cluster}{$host}{$metric}{"NAME"} =~ m/.*out$/ ) {
+                            elsif ( $metric_name =~ m/.*out(_.*)?$/ ) {
                                 $self->{STORE} .= "        <nmwgt:direction>out</nmwgt:direction>\n";
                             }
-
-                            #$self->{STORE} .= "        <nmwgt:description></nmwgt:description>\n";
-                            #$self->{STORE} .= "        <nmwgt:ifDescription></nmwgt:ifDescription>\n";
                             $self->{STORE} .= "      </nmwgt:interface>\n";
                         }
                         $self->{STORE} .= "    </ganglia:subject>\n";
-                        foreach my $eT ( @{ $self->{MAP}{ $struct{$grid}{$cluster}{$host}{$metric}{"NAME"} }{"eventTypes"} } ) {
+                        
+                        foreach my $eT ( @{ $meta->{"eventTypes"} } ) {
                             $self->{STORE} .= "    <nmwg:eventType>" . $eT . "</nmwg:eventType>\n";
                         }
                         $self->{STORE} .= "    <nmwg:parameters id=\"parameters\">\n";
-                        foreach my $eT ( @{ $self->{MAP}{ $struct{$grid}{$cluster}{$host}{$metric}{"NAME"} }{"eventTypes"} } ) {
+                        foreach my $eT ( @{ $meta->{"eventTypes"} } ) {
                             $self->{STORE} .= "      <nmwg:parameter name=\"supportedEventType\">" . $eT . "</nmwg:parameter>\n";
                         }
                         $self->{STORE} .= "    </nmwg:parameters>\n";
@@ -396,13 +422,13 @@ sub openDB {
                         $self->{STORE} .= "  <nmwg:data xmlns:nmwg=\"http://ggf.org/ns/nmwg/base/2.0/\" id=\"data." . $c . "\" metadataIdRef=\"metadata." . $c . "\">\n";
                         $self->{STORE} .= "    <nmwg:key id=\"key\">\n";
                         $self->{STORE} .= "      <nmwg:parameters id=\"pkey\">\n";
-                        foreach my $eT ( @{ $self->{MAP}{ $struct{$grid}{$cluster}{$host}{$metric}{"NAME"} }{"eventTypes"} } ) {
+                        foreach my $eT ( @{ $meta->{"eventTypes"} } ) {
                             $self->{STORE} .= "      <nmwg:parameter name=\"supportedEventType\">" . $eT . "</nmwg:parameter>\n";
                         }
                         $self->{STORE} .= "        <nmwg:parameter name=\"type\">rrd</nmwg:parameter>\n";
                         $self->{STORE} .= "        <nmwg:parameter name=\"file\">" . $config{"rrd_rootdir"} . "/" . $config{"gridname"} . "/" . $struct{$grid}{$cluster}{$host}{"host_info"}{"HOSTNAME"} . "/" . $struct{$grid}{$cluster}{$host}{$metric}{"NAME"} . ".rrd</nmwg:parameter>\n";
                         $self->{STORE} .= "        <nmwg:parameter name=\"valueUnits\">" . $struct{$grid}{$cluster}{$host}{$metric}{"UNITS"} . "</nmwg:parameter>\n";
-                        $self->{STORE} .= "        <nmwg:parameter name=\"dataSource\">" . $self->{MAP}{ $struct{$grid}{$cluster}{$host}{$metric}{"NAME"} }{"ds"} . "</nmwg:parameter>\n";
+                        $self->{STORE} .= "        <nmwg:parameter name=\"dataSource\">" . $meta->{"ds"} . "</nmwg:parameter>\n";
 
                         if ( $rrddb ) {
                             $rrddb->setFile( { file => $config{"rrd_rootdir"} . "/" . $config{"gridname"} . "/" . $struct{$grid}{$cluster}{$host}{"host_info"}{"HOSTNAME"} . "/" . $struct{$grid}{$cluster}{$host}{$metric}{"NAME"} . ".rrd" } );
