@@ -8,26 +8,75 @@
 <div class="rContainer">
 <div class="subTitle1">[% title %]</div>
 
+<center><font color="red"><div id="web_admin_error">[% error_message %]</div></font></center>
+<center><div id="web_admin_status">[% status_message %]</div></center>
+<br/>
+<center><div id="last_pull">The configuration was last pulled on: [% last_pull_date %]</div></font></center>
+<center><div id="last_mod">The configuration was last modified on: [% last_modified_date %]</div></center>
+<br/>
+[% IF last_modified_date != "never" %]
+<center><font color="red"><div id="must_push">There are local modifications that have not been pushed!.</div></font></center>
+<center><font color="red"><div id="must_push">Services will only update their configuration from UNIS.</div></font></center>
+[% END %]
+<br/>
+<input class="button" type="submit" name="push_config" id="push_config" value="Push Configuration to UNIS" onClick="handle_pushpull('push')">
+<input class="button" type="submit" name="pull_config" id="pull_config" value="Pull Configuration from UNIS" onClick="handle_pushpull('pull')">
+
+<script type="text/javascript">
+function handle_pushpull(fname) {
+    dojo.xhrGet ({
+            url: '[% self_url %]',
+            handleAs: "json",
+            content: { 'fname': fname },
+            timeout: 300000,
+            load: handle_pushpull_response,
+            error: function (response, io_args) { dojo.byId('web_admin_error').innerHTML="Problem " + fname + "ing configuration"; },
+            mimetype: "text/json" 
+        });
+}
+
+function handle_pushpull_response(response, io_args) {
+    if (response['error']) {
+        dojo.byId('web_admin_error').innerHTML=response['error'];
+        dojo.byId('web_admin_status').innerHTML="";
+    } else if (response['message']) {
+        dojo.byId('web_admin_error').innerHTML="";
+        dojo.byId('web_admin_status').innerHTML=response['message'];
+        
+        dojo.byId('last_pull').innerHTML="The configuration was last pulled on: " + response['last_pull_date'];
+        dojo.byId('last_mod').innerHTML="The configuration was last modified on: " + response['last_modified_date'];
+        
+        dojo.byId('nptoolkit_is_modified').value = 0;
+    } else {
+        dojo.byId('web_admin_error').innerHTML="Received unknown response from service";
+    }
+}
+</script>
+
 <div class="rcontainer">
     <table class="basic_table">
         <tr><th  style="width: 600px" colspan=2>Configured Services</th></tr>
 	[% FOREACH node_pair IN nodes %]
-	    <tr><td class="top" colspan="2">Node [% node_pair.value.name %]</td>
+	    <tr><td class="top" colspan="2">Node [% node_pair.value.name %]</td></tr>
 	    [% FOREACH service_pair IN node_pair.value.SERVICES %]
 	        <tr>
-	            <td class="top">[% service_pair.value.description %][% IF service_pair.value.url %]<sup>[<a target="_blank" href="[% service_pair.value.url %]">1</a>]</sup>[% END %]</td>
-		        <td class="top">
-		            [% IF service_pair.value.enabled == "true" %]
+	            <td class="middle">[% service_pair.value.name %][% IF service_pair.value.url %]<sup>[<a target="_blank" href="[% service_pair.value.url %]">1</a>]</sup>[% END %]</td>
+		        <td class="middle">
+		            [% IF service_pair.value.enabled %]
 			            <font color="green">Enabled</font>
-		            [% ELSIF service_pair.value.enabled == "false" %]
+		            [% ELSE %]
 			            <font color="red">Disabled</font>
 		            [% END %]
 		        </td>
 		    </tr>
 		[% END %]
+		<tr><td class="bottom"></td></tr>
 	[% END %]
 	</table>
-
+<p>
+<input class="button" type="submit" name="push_config" id="push_config" value="Push Configuration to UNIS" onClick="handle_pushpull('push')">
+<input class="button" type="submit" name="pull_config" id="pull_config" value="Pull Configuration from UNIS" onClick="handle_pushpull('pull')">
+</p>
 	<table class="basic_table">
 		<tr><th style="width: 400px" colspan=2>Software Versions</th></tr>
 		<tr><td><a rel="external" target="_blank" href="http://psps.perfsonar.net/toolkit/">pS-Performance Toolkit</a></td><td>[% toolkit_version %]</td></tr>
@@ -37,9 +86,6 @@
 		<tr><td><a rel="external" target="_blank" href="http://www.internet2.edu/performance/pS-PS/index.html">perfSONAR-PS SNMP MA</a></td><td>3.1</td></tr>
 		<tr><td><a rel="external" target="_blank" href="http://www.internet2.edu/performance/bwctl/">BWCTL</a></td><td>1.3</td></tr>
 		<tr><td><a rel="external" target="_blank" href="http://www.internet2.edu/performance/owamp/">OWAMP</a></td><td>3.2rc2</td></tr>
-		<tr><td><a rel="external" target="_blank" href="http://www.internet2.edu/performance/ndt/">NDT</a></td><td>3.5.14</td></tr>
-		<tr><td><a rel="external" target="_blank" href="http://www.psc.edu/networking/projects/pathdiag/">NPAD</a></td><td>1.5.6</td></tr>
-		<tr><td><a rel="external" target="_blank" href="http://www.cacti.net/">Cacti</a></td><td>0.8.7e</td></tr>
 	</table>
 
 </div>

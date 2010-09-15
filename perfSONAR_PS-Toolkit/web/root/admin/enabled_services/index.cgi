@@ -55,9 +55,9 @@ my $function = $cgi->param("fname");
 unless ($function) {
 	main();
 } elsif ($function eq "save_config") {
-	save_config();
+	save_config( $cgi->param("node") );
 } elsif ($function eq "reset_config") {
-	reset_config();
+	reset_config( $cgi->param("node") );
 } else {
 	die("Unknown function: $function");
 }
@@ -90,25 +90,18 @@ sub fill_variables {
     my $vars = shift;
 
     my $services_conf = perfSONAR_PS::NPToolkit::Config::Services->new();
-    my $res = $services_conf->init( { enabled_services_file => $conf{enabled_services_file} } );
+    my $res = $services_conf->init( { unis_instance => $conf{unis_instance} } );
     if ( $res != 0 ) {
         $vars->{error_message}  = "Couldn't initialize Services Configuration";
+        return -1;
     } else {
-	    my $services = $services_conf->get_services();
-
-	    my %vars_services = ();
-	    foreach my $key ( keys %{$services} ) {
-		    my $service = $services->{$key};
-
-		    my %service_desc = ();
-		    $service_desc{name}        = $service->{name};
-		    $service_desc{description} = $service->{description};
-		    $service_desc{enabled}     = $service->{enabled};
-
-		    $vars_services{ $service->{name} } = \%service_desc;
-	    }
-
-	    $vars->{services}       = \%vars_services;
+        $vars->{nodes} = $services_conf->get_nodes();
+        unless ( keys %{ $vars->{nodes} } ) {
+            $vars->{error_message}  = "There are no nodes to configure.";
+            return -1;
+        }
+        
+	$vars->{services} = $services_conf->get_known_services();
     }
 
     return 0;
@@ -128,12 +121,16 @@ sub display_body {
 }
 
 sub save_config {
+    my $node = shift;
     my $params = $cgi->Vars;
-
+    
+    delete $params->{'fname'} if exists $params->{'fname'};
+    delete $params->{'node'} if exists $params->{'node'};
+    
     my ($status, $res);
 
     my $services_conf = perfSONAR_PS::NPToolkit::Config::Services->new();
-    $res = $services_conf->init( { enabled_services_file => $conf{enabled_services_file} } );
+    $res = $services_conf->init( { unis_instance => $conf{unis_instance} } );
     if ( $res != 0 ) {
         my %resp = ( error => "Couldn't initialize Services Configuration" );
 	print "Content-type: text/json\n\n";
@@ -142,16 +139,14 @@ sub save_config {
     }
 
     foreach my $name (keys %$params) {
-    	next unless ($services_conf->lookup_service({ name => $name }));
-
 	if ($params->{$name} eq "off") {
-		$services_conf->disable_service({ name => $name});
+            $services_conf->disable_service( { node_id => $node, type => $name } );
 	} else {
-		$services_conf->enable_service({ name => $name});
+            $services_conf->enable_service( { node_id => $node, type => $name } );
 	}
     }
 
-    ($status, $res) = $services_conf->save( { restart_services => 1 } );
+    ($status, $res) = $services_conf->save( {} );
     if ($status != 0) {
         my %resp = ( error => "Couldn't save Services Configuration: $res" );
 	print "Content-type: text/json\n\n";
@@ -159,24 +154,28 @@ sub save_config {
 	return;
     }
 
-    my %resp = ( message => "Configuration Saved And Services Restarted" );
+    my %resp = ( message => "Configuration saved (but not pushed)." );
     print "Content-type: text/json\n\n";
     print encode_json(\%resp);
 }
 
 sub reset_config {
+    my $node = shift;
+    
     my $services_conf = perfSONAR_PS::NPToolkit::Config::Services->new();
-    my $res = $services_conf->init( { enabled_services_file => $conf{enabled_services_file} } );
+    my $res = $services_conf->init( { unis_instance => $conf{unis_instance} } );
     if ( $res != 0 ) {
         my %resp = ( error => "Couldn't initialize Services Configuration" );
 	print "Content-type: text/json\n\n";
 	print encode_json(\%resp);
     }
 
-    my $services = $services_conf->get_services();
+    my $services = $services_conf->get_services( { node_id => $node } );
     my %service_list = ();
-    foreach my $name (keys %$services) {
-	    $service_list{$name} = $services->{$name}->{enabled};
+    foreach my $name ( keys %{ $services_conf->get_known_services() } ) {
+        # Disabled is default.
+        $service_list{ $name } = 0;
+	$service_list{ $name } = $services->{ $name }->{enabled} if exists $services->{ $name };
     }
 
     my %resp = ( services => \%service_list );

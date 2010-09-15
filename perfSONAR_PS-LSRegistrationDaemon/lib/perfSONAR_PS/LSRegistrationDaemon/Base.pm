@@ -101,17 +101,17 @@ sub service_name {
     return $retval;
 }
 
-=head2 service_domain ($self)
+=head2 service_node ($self)
 
-For now returns the configured domain or undef if not configured.
+For now returns the configured node id or undef if not configured.
 
 =cut
 
-sub service_domain {
+sub service_node {
     my ( $self ) = @_;
 
-    if ( exists $self->{CONF}->{site_domain} and $self->{CONF}->{site_domain} ) {
-        return $self->{CONF}->{site_domain};
+    if ( exists $self->{CONF}->{node_id} and $self->{CONF}->{node_id} ) {
+        return $self->{CONF}->{node_id};
     }
 
     return undef;
@@ -206,7 +206,7 @@ sub register {
     $service{name}                = $self->service_name();
     $service{description}         = $self->service_desc();
     $service{type}                = $self->service_type();
-    $service{domain}              = $self->service_domain();
+    $service{node}                = $self->service_node();
     $service{addresses}           = $addresses;
 
     my $ev       = $self->event_type();

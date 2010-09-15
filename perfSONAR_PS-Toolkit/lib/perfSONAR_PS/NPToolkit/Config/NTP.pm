@@ -91,14 +91,15 @@ sub save {
 
     my $res;
 
-    return (-1, "Problem generating NTP configuration") unless ( $ntp_conf_output );
+    #return (-1, "Problem generating NTP configuration") unless ( $ntp_conf_output );
     return (-1, "Problem generating list of known servers") unless ( $ntp_known_servers_output );
-
-    $res = save_file( { file => $self->{NTP_CONF_FILE}, content => $ntp_conf_output } );
-    if ( $res == -1 ) {
-        $self->{LOGGER}->error( "File save failed: " . $self->{KNOWN_SERVERS_FILE} );
-        return (-1, "Problem saving NTP configuration");
-    }
+    
+    # GFR: Disabled for LAMP
+    #$res = save_file( { file => $self->{NTP_CONF_FILE}, content => $ntp_conf_output } );
+    #if ( $res == -1 ) {
+    #    $self->{LOGGER}->error( "File save failed: " . $self->{KNOWN_SERVERS_FILE} );
+    #    return (-1, "Problem saving NTP configuration");
+    #}
 
     $res = save_file( { file => $self->{KNOWN_SERVERS_FILE}, content => $ntp_known_servers_output } );
     if ( $res == -1 ) {
@@ -237,13 +238,15 @@ sub delete_server {
 sub last_modified {
     my ( $self, @params ) = @_;
     my $parameters = validate( @params, {} );
-
+    
     my ($mtime1) = (stat ( $self->{KNOWN_SERVERS_FILE} ) )[9];
-    my ($mtime2) = (stat ( $self->{NTP_CONF_FILE} ) )[9];
+    
+    # GFR: Disabled for LAMP
+    #my ($mtime2) = (stat ( $self->{NTP_CONF_FILE} ) )[9];
 
-    my $mtime = ($mtime1 > $mtime2)?$mtime1:$mtime2;
+    #my $mtime = ($mtime1 > $mtime2)?$mtime1:$mtime2;
 
-    return $mtime;
+    return $mtime1;
 }
 
 =head2 reset_state()
@@ -278,8 +281,9 @@ sub reset_state {
             }
         }
     }
-
-    if ( $self->{NTP_CONF_FILE} ) {
+    
+    # GFR: Disabled for LAMP
+    if ( undef and $self->{NTP_CONF_FILE} ) {
         my ( $status, $res ) = ntp_conf_read_file( { file => $self->{NTP_CONF_FILE} } );
         if ( $status != 0 ) {
             return $status;
@@ -314,7 +318,10 @@ sub reset_state {
 sub generate_ntp_conf {
     my ( $self, @params ) = @_;
     my $parameters = validate( @params, {} );
-
+    
+    # GFR: Disabled for LAMP
+    return;
+    
     my %vars         = ();
     my @vars_servers = ();
     foreach my $key ( sort keys %{ $self->{NTP_SERVERS} } ) {

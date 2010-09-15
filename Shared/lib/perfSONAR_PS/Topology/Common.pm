@@ -357,7 +357,7 @@ top-level XML topology element.
 =cut
 
 sub normalizeTopology_nodes {
-    my ( $root, $topology, $uri, $top_level ) = @_;
+    my ( $root, $topology, $uri, $top_level, $changeType ) = @_;
     my $logger = get_logger( "perfSONAR_PS::Topology::Common" );
 
     $logger->debug( "Normalizing nodes" );
@@ -369,7 +369,7 @@ sub normalizeTopology_nodes {
         foreach my $domain ( $find_res->get_nodelist ) {
             my $fqid = $domain->getAttribute( "id" );
 
-            my ( $status, $res ) = normalizeTopology_nodes( $domain, $topology, $fqid, $top_level );
+            my ( $status, $res ) = normalizeTopology_nodes( $domain, $topology, $fqid, $top_level, $changeType );
             if ( $status != 0 ) {
                 return ( $status, $res );
             }
@@ -403,7 +403,7 @@ sub normalizeTopology_nodes {
                     return ( -1, $msg );
                 }
 
-                if ( $root->localname ne "domain" ) {
+                unless ( $root->localname eq "domain" ) {
                     my $msg = "Node $id is contained in something that is not a domain: " . $root->localname;
                     $logger->error( $msg );
                     return ( -1, $msg );
@@ -422,13 +422,18 @@ sub normalizeTopology_nodes {
                 my $domain_id = idRemoveLevel( $fqid, q{} );
                 my $domain = $topology->{"domains"}->{$domain_id};
 
-                if ( not defined $domain ) {
+                if ( not defined $domain) {
                     my $msg = "Node $fqid references non-existent domain $domain_id"; #, moving to top-level";
-                    #
-                    # GENI: Domain's must exist, and only domains are top-level.
-                    #
-                    $logger->error( $msg );
-                    return ( -1, $msg );
+                    
+                    unless ( defined $changeType and $changeType ne "add" and $root->localname eq "topology" ) {
+                        #
+                        # GENI: Domain's must exist, and only domains are top-level.
+                        #   But on replaces or removes you don't need a domain.
+                        #
+                        $logger->error( $msg );
+                        return ( -1, $msg );
+                    }
+                    
                     #$logger->debug( $msg );
 
                     #$root->removeChild( $node );
@@ -725,7 +730,7 @@ sub normalizeTopology_domains {
     return ( 0, q{} );
 }
 
-=head2 normalizeTopology($topology)
+=head2 normalizeTopology($topology, $changeType)
 
 Takes a topology structure and normalizes it into "domain/node/port/link"
 scheme. If a stray node/port/link is found, it is moved up to the top-level if
@@ -734,7 +739,7 @@ it's not already there.
 =cut
 
 sub normalizeTopology {
-    my ( $root ) = @_;
+    my ( $root, $changeType ) = @_;
     my $logger = get_logger( "perfSONAR_PS::Topology::Common" );
 
     $logger->debug( "Normalizing topology" );
@@ -768,7 +773,7 @@ sub normalizeTopology {
         return ( $status, $res );
     }
 
-    ( $status, $res ) = normalizeTopology_nodes( $root, \%topology, q{}, $root );
+    ( $status, $res ) = normalizeTopology_nodes( $root, \%topology, q{}, $root, $changeType );
     if ( $status != 0 ) {
         return ( $status, $res );
     }

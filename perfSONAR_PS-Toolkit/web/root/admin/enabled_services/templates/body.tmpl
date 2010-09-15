@@ -8,7 +8,11 @@
 
 <script type="text/javascript">
 function handle_save() {
-	display_waiting_dialog("Saving Configuration And Restarting Services");
+    if ( !check_valid_node() ) {
+        return;
+    }
+    
+	display_waiting_dialog("Saving Configuration..");
 
 	var send_content = dijit.byId("services_form").attr('value');
 	for(var tmp in send_content) {
@@ -17,7 +21,8 @@ function handle_save() {
 		}
 	}
 	send_content["fname"] = "save_config";
-
+    send_content["node"]  = dijit.byId('node_select').attr('value');
+    
 	dojo.xhrGet ({
 			url: '[% self_url %]',
 			handleAs: "json",
@@ -44,10 +49,17 @@ function handle_save_response(response, io_args) {
 }
 
 function handle_reset() {
+    var node = dijit.byId('node_select').attr('value');
+    
+    if ( !check_valid_node() ) {
+        return;
+    }
+    
+    oldnode = node;
 	dojo.xhrGet ({
 			url: '[% self_url %]',
 			handleAs: "json",
-			content: { 'fname': "reset_config" },
+			content: { 'fname': "reset_config", 'node': node },
 			timeout: 15000,
 			load: handle_reset_response,
 			error: function (response, io_args) { dojo.byId('web_admin_error').innerHTML="Problem reseting configuration"; },
@@ -165,81 +177,41 @@ function select_latency_services() {
 }
 </script>
 
+<div>
+<table>
+<tr>
+  <td style="font-size: 14px; color: #039;">Node: </td>
+  <td>
+<form id="node_form" dojoType="dijit.form.Form">
+<select id='node_select' dojoType='dijit.form.FilteringSelect' autocomplete='false' value='' onChange='handle_node_select()'>
+    <option value='head'>Please select a node..</option>
+[% FOREACH pair IN nodes.pairs %]
+    <option value='[% pair.key %]'>[% pair.value.name %]</option>
+[% END %]
+</select>
+</form>
+  </td>
+</tr>
+</table>
+</div>
+
 <input type="hidden" id="nptoolkit_is_modified" value="0" />
 
-<input class="button" type="submit" name="save" id="save" value="Save" onClick="handle_save()">
-<input class="button" type="submit" name="reset" id="reset" value="Reset" onClick="handle_reset()">
-
 <form id="services_form" dojoType="dijit.form.Form">
-[% IF advanced_mode %]
-<table class="basic_table">
-        <tr>
-        <th></th><th>Services</th>
-        </tr>
-        [% FOREACH pair IN services.pairs %]
-        <tr>
-                <td><input type="checkbox" onClick="dojo.byId('nptoolkit_is_modified').value='1'" dojoType="dijit.form.CheckBox" value="on" id="[% pair.value.name %]" name="[% pair.value.name %]" [% IF pair.value.enabled %] checked="checked" [% END %] /></td>
-                <td>[% pair.value.description %]</td>
-        </tr>
-        [% END %]
-</table>
-[% ELSE %]
 <table class="basic_table">
         <tr>
         <th></th><th>Services</th><th>Description</th>
-	</tr>
-	<tr>
-	<td><input type="checkbox" onClick="dojo.byId('nptoolkit_is_modified').value='1'" dojoType="dijit.form.CheckBox" value="on"  id="pinger" name="pinger" [% IF services.pinger.enabled %] checked="checked" [% END %] /></td>
-	<td>PingER</td>
-	<td>Enables this host to perform scheduled ping tests. These tests will periodically ping configured hosts giving administrators a view of the latency from their site over time.</td>
-	</tr>
-	<tr>
-	<td><input type="checkbox" onClick="dojo.byId('nptoolkit_is_modified').value='1'" dojoType="dijit.form.CheckBox" value="on"  id="perfsonarbuoy_bwctl" name="perfsonarbuoy_bwctl" [% IF services.perfsonarbuoy_bwctl.enabled %] checked="checked" [% END %] /></td>
-	<td>perfSONAR-BUOY Throughput Testing</td>
-	<td>Enables this host to perform scheduled throughput tests. These tests will run periodically giving administrators a view of the throughput to and from their site over time.</td>
-	</tr>
-	<tr>
-	<td><input type="checkbox" onClick="dojo.byId('nptoolkit_is_modified').value='1'" dojoType="dijit.form.CheckBox" value="on"  id="perfsonarbuoy_owamp" name="perfsonarbuoy_owamp" [% IF services.perfsonarbuoy_owamp.enabled %] checked="checked" [% END %] /></td>
-	<td>perfSONAR-BUOY Latency Testing</td>
-	<td>Enables this host to perform scheduled one-way latency tests. These tests will run periodically giving administrators a view of the latency from their site over time.</td>
-	</tr>
-	<tr>
-	<td><input type="checkbox" onClick="dojo.byId('nptoolkit_is_modified').value='1'" dojoType="dijit.form.CheckBox" value="on"  id="perfsonarbuoy_ma" name="perfsonarbuoy_ma" [% IF services.perfsonarbuoy_ma.enabled %] checked="checked" [% END %] /></td>
-	<td>perfSONAR-BUOY Measurement Archive</td>
-	<td>Makes available the data collected by the perfSONAR-BUOY Latency and Throughput tests.</td>
-	</tr>
-	<tr>
-	<td><input type="checkbox" onClick="dojo.byId('nptoolkit_is_modified').value='1'" dojoType="dijit.form.CheckBox" value="on"  id="ndt" name="ndt" [% IF services.ndt.enabled %] checked="checked" [% END %] /></td>
-	<td>NDT</td>
-	<td>Allows clients at other sites to run NDT tests to this host.</td>
-	</tr>
-	<tr>
-	<td><input type="checkbox" onClick="dojo.byId('nptoolkit_is_modified').value='1'" dojoType="dijit.form.CheckBox" value="on"  id="npad" name="npad" [% IF services.npad.enabled %] checked="checked" [% END %] /></td>
-	<td>NPAD</td>
-	<td>Allows clients at other sites to run NPAD tests to this host.</td>
-	</tr>
-	<tr>
-	<td><input type="checkbox" onClick="dojo.byId('nptoolkit_is_modified').value='1'" dojoType="dijit.form.CheckBox" value="on"  id="bwctl" name="bwctl" [% IF services.bwctl.enabled %] checked="checked" [% END %] /></td>
-	<td>BWCTL</td>
-	<td>Allows clients at other sites to run Throughput tests to this host</td>
-	</tr>
-	<tr>
-	<td><input type="checkbox" onClick="dojo.byId('nptoolkit_is_modified').value='1'" dojoType="dijit.form.CheckBox" value="on"  id="owamp" name="owamp" [% IF services.owamp.enabled %] checked="checked" [% END %] /></td>
-	<td>OWAMP</td>
-	<td>Allows clients at other sites to run One-Way Latency tests to this host</td>
-	</tr>
-	<tr>
-	<td><input type="checkbox" onClick="dojo.byId('nptoolkit_is_modified').value='1'" dojoType="dijit.form.CheckBox" value="on"  id="ssh" name="ssh" [% IF services.ssh.enabled %] checked="checked" [% END %] /></td>
-	<td>SSH</td>
-	<td>Allows administrators to remotely connect to this host using SSH</td>
         </tr>
-	<tr>
-	<td><input type="checkbox" onClick="dojo.byId('nptoolkit_is_modified').value='1'" dojoType="dijit.form.CheckBox" value="on"  id="snmp_ma" name="snmp_ma" [% IF services.snmp_ma.enabled %] checked="checked" [% END %] /></td>
-	<td>SNMP MA</td>
-	<td>Makes available SNMP statistics collected by Cacti (Note: you must configure cacti for this to work)</td>
+        [% FOREACH pair IN services.pairs %]
+            [% UNLESS pair.value.disable %]
+        <tr>
+                <td><input type="checkbox" onClick="dojo.byId('nptoolkit_is_modified').value='1'" dojoType="dijit.form.CheckBox" value="on" id="[% pair.key %]" name="[% pair.key %]" [% IF pair.value.enabled %] checked="checked" [% END %] /></td>
+                <td>[% pair.value.name %]</td>
+                <td>[% pair.value.description %]</td>
         </tr>
+            [% END %]
+        [% END %]
 </table>
-[% END %]
 </form>
 
 <input class="button" type="submit" name="select_bandwidth" id="select_bandwidth" value="Only Enable Bandwidth Services" onClick="select_bandwidth_services()">

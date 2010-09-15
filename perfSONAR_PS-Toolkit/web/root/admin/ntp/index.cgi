@@ -20,6 +20,8 @@ my $basedir = "$RealBin/";
 use lib "$RealBin/../../../../lib";
 
 use perfSONAR_PS::NPToolkit::Config::NTP;
+use perfSONAR_PS::NPToolkit::Config::Services;
+use perfSONAR_PS::NPToolkit::Config::Handlers::NTP;
 use perfSONAR_PS::Utils::NTP qw( ping );
 use perfSONAR_PS::Utils::DNS qw( reverse_dns resolve_address );
 
@@ -55,6 +57,10 @@ if ( $conf{debug} ) {
 }
 
 $logger->info( "templates dir: $conf{template_directory}" );
+
+my $services_conf = perfSONAR_PS::NPToolkit::Config::Services->new();
+# TODO: Load this from node.info
+$services_conf->init( { unis_instance => "https://127.0.0.1:8012/perfSONAR_PS/services/unis" } );
 
 my $cgi = CGI->new();
 our $session;
@@ -129,7 +135,28 @@ sub fill_variables {
     my $vars = shift;
 
     my @vars_servers = ();
-
+    
+    my $nodes = $services_conf->get_nodes();
+    
+    my %ntp_nodes = ();
+    foreach my $node_id ( keys %{ $nodes } ) {
+        next unless $services_conf->lookup_service( { node_id => $node_id, type => "ntp" } );
+        
+        $ntp_nodes{ $node_id } = {
+             name     => $nodes->{ $node_id }->{name},
+             selected => 0,
+        };
+    }
+    
+    if ( $cgi->param("args") ) {
+        my $node_id = $cgi->param("args");
+        $ntp_nodes{ $node_id }->{selected} = 1;
+    }
+    
+    unless ( keys %ntp_nodes ) {
+        $error_msg = "There are no nodes with NTP enabled.";
+    }
+    
     my $ntp_servers = $ntp_conf->get_servers();
     foreach my $key ( sort { $ntp_servers->{$a}->{description} cmp $ntp_servers->{$b}->{description} } keys %{$ntp_servers} ) {
         my $ntp_server = $ntp_servers->{$key};
@@ -150,13 +177,14 @@ sub fill_variables {
 
         push @vars_servers, \%server_info;
     }
-
+    
+    $vars->{nodes}                 = \%ntp_nodes;
     $vars->{servers}               = \@vars_servers;
     $vars->{enable_select_closest} = 1 if $conf{enable_select_closest};
     $vars->{is_modified}           = $is_modified;
     $vars->{status_message}        = $status_msg;
     $vars->{error_message}         = $error_msg;
-
+    
     return 0;
 }
 
@@ -175,10 +203,28 @@ sub display_body {
 
 sub save_config {
     my ($status, $res) = $ntp_conf->save( { restart_services => 1 } );
+    
+    if ( $cgi->param("args") ) {
+        my $node_id = $cgi->param("args");
+        my $service = $services_conf->lookup_service( { node_id => $node_id, type => "ntp" } );
+        
+        my @servers = ();
+        my $ntp_servers = $ntp_conf->get_servers(); 
+        foreach my $key ( keys %{ $ntp_servers } ) {
+            my $ntp_server = $ntp_servers->{$key};
+            
+            push @servers, $ntp_server->{address} if $ntp_server->{selected};
+        }
+        
+        my $modified = $service->{CONFIGURATION}->set_servers( { servers => \@servers } );
+        
+        ($status, $res) = $services_conf->save( { set_modified => $modified } );
+    }
+    
     if ($status != 0) {
         $error_msg = "Problem saving configuration: $res";
     } else {
-        $status_msg = "Configuration Saved And Services Restarted";
+        $status_msg = "Configuration Saved";
         $is_modified = 0;
 	$initial_state_time = $ntp_conf->last_modified();
     }
@@ -268,6 +314,15 @@ sub reset_state {
     $initial_state_time = $ntp_conf->last_modified();
 
     $failed_connect = {};
+    
+    if ( $cgi->param("args") ) {
+        my $node_id = $cgi->param("args");
+        my $service = $services_conf->lookup_service( { node_id => $node_id, type => "ntp" } );
+        
+        foreach my $address ( keys %{ $service->{CONFIGURATION}->get_servers() } ) {
+            toggle_server( $address, "on" );
+        }
+    }
 }
 
 sub save_state {

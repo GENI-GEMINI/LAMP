@@ -1,4 +1,4 @@
-[% title = "perfSONAR Global Service and Data View" %]
+[% title = "LAMP I&M System Service and Data View" %]
 
 [% INCLUDE header.tmpl %]
 
@@ -69,35 +69,41 @@
       [% END %]
 
       [% IF view %]   
-      <tr>        
-        <td align="center" width="20%">
+      <tr>
+        <td align="center" width="15%">
+          <i><b>Node</b></i>
+        </td>        
+        <td align="center" width="15%">
           <i><b>Service Name</b></i>
         </td>
         <td align="center" width="5%">
           <i><b>Service Type</b></i>
         </td>
-        <td align="center" width="30">
+        <td align="center" width="30%">
           <i><b>Address</b></i>
         </td>
-        <td align="center" width="40%">
+        <td align="center" width="30%">
           <i><b>Description</b></i>
-        </td>     
+        </td>
         <td align="center" width="5%">
           <i><b>Test</b></i>
         </td> 
       </tr>
       [% ELSE %]
-      <tr>        
-        <td align="center" width="20%">
+      <tr>
+        <td align="center" width="15%">
+          <i><b>Node</b></i>
+        </td>       
+        <td align="center" width="15%">
           <i><b>Service Name</b></i>
         </td>
         <td align="center" width="10%">
           <i><b>Service Type</b></i>
         </td>
-        <td align="center" width="30">
+        <td align="center" width="30%">
           <i><b>Address</b></i>
         </td>
-        <td align="center" width="40%">
+        <td align="center" width="30%">
           <i><b>Description</b></i>
         </td>     
       </tr>
@@ -105,7 +111,9 @@
 
       [% FOREACH contents %]
       <tr>
-        [% IF view %]
+        <td align="left">
+          [% node %]
+        </td>
         <td align="left">
           [% name %]
         </td>
@@ -117,23 +125,11 @@
         </td>
         <td align="left">
           [% desc %]
-        </td>       
+        </td>
+        [% IF view %]
         <td align="center">
           <input class="button" type="submit" value="Test" id="[% count1 %]_[% count2 %]" name="[% count1 %]_[% count2 %]" onClick="window.open('[% daemon %]','testwindow_[% count1 %]_[% count2 %]','width=800,height=600,status=yes,scrollbars=yes,resizable=yes,status=yes,toolbar=yes,location=yes,menubar=yes')" />
-        </td>  
-        [% ELSE %]
-        <td align="left">
-          [% name %]
         </td>
-        <td align="center">
-          [% type %]
-        </td>
-        <td align="left">
-          [% daemon %]
-        </td>
-        <td align="left">
-          [% desc %]
-        </td>       
         [% END %]
       </tr>
       [% END %]
@@ -152,7 +148,10 @@
         </th>
       </tr>
       <tr>
-        <td align="center" width="20%">
+        <td align="center" width="15%">
+          <i><b>Node</b></i>
+        </td>
+        <td align="center" width="15%">
           <i><b>Service Name</b></i>
         </td>
         <td align="center" width="5%">
@@ -161,7 +160,7 @@
         <td align="center" width="30">
           <i><b>Address</b></i>
         </td>
-        <td align="center" width="40%">
+        <td align="center" width="30%">
           <i><b>Description</b></i>
         </td>     
         <td align="center" width="5%">
@@ -170,6 +169,9 @@
       </tr>
       [% FOREACH contents %]
       <tr>
+        <td align="left">
+          [% node %]
+        </td>
         <td align="left">
           [% name %]
         </td>
@@ -183,7 +185,6 @@
           [% desc %]
         </td>       
         <td align="center">
-
           <input class="button" type="submit" value="Query" id="[% count1 %]_[% count2 %]" name="[% count1 %]_[% count2 %]" onClick="window.open('./serviceTest.cgi?url=[% service %]&eventType=[% eventtype %]','graphwindow_[% count1 %]_[% count2 %]','width=800,height=600,status=yes,scrollbars=yes,resizable=yes,status=yes,toolbar=yes,location=yes,menubar=yes')" />
         </td>     
       </tr>

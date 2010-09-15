@@ -3,10 +3,12 @@
 use strict;
 use warnings;
 use CGI;
+use CGI::Ajax;
 use Log::Log4perl qw(get_logger :easy :levels);
 use Template;
 use POSIX;
 use Config::General;
+use JSON::XS;
 
 use FindBin qw($RealBin);
 
@@ -54,15 +56,73 @@ my $tt = Template->new( INCLUDE_PATH => $conf{template_directory} ) or die( "Cou
 my $html;
 
 my %vars = ();
-$vars{site_name}       = $administrative_info_conf->get_organization_name();
-$vars{site_location}   = $administrative_info_conf->get_location();
-$vars{nodes}           = $services_conf->get_nodes();
-
-$tt->process( "status.tmpl", \%vars, \$html ) or die $tt->error();
 
 my $cgi = CGI->new();
-print $cgi->header;
-print $html;
+
+my $function = $cgi->param("fname");
+unless ( $function ) {
+    $vars{site_name}          = $administrative_info_conf->get_organization_name();
+    $vars{site_location}      = $administrative_info_conf->get_location();
+    $vars{nodes}              = $services_conf->get_nodes();
+    $vars{last_pull_date}     = $services_conf->last_pull();
+    $vars{last_modified_date} = $services_conf->last_modified();
+
+    unless ( $vars{last_modified_date} ) {
+        $vars{last_modified_date} = "never";
+    }
+    
+    $tt->process( "status.tmpl", \%vars, \$html ) or die $tt->error();
+
+    print $cgi->header;
+    print $html;
+} 
+elsif ($function eq "pull") {
+    pull_config();
+}
+elsif ($function eq "push") {
+    push_config();
+}
+else {
+    die("Unknown function: $function");
+}
+
+sub push_config {
+    my $res = $services_conf->push_configuration();
+    if ( $res != 0 ) {
+        my %resp = ( error => "Couldn't push Services Configuration." );
+        print "Content-type: text/json\n\n";
+        print encode_json(\%resp);
+        return;
+    }
+
+    my %resp = ( 
+        message            => "Configuration pushed to UNIS.",
+        last_pull_date     => $services_conf->last_pull(),
+        last_modified_date => "never",
+    );
+    
+    print "Content-type: text/json\n\n";
+    print encode_json(\%resp);
+}
+
+sub pull_config {
+    my $res = $services_conf->pull_configuration();
+    if ( $res != 0 ) {
+        my %resp = ( error => "Couldn't pull Services Configuration." );
+        print "Content-type: text/json\n\n";
+        print encode_json(\%resp);
+        return;
+    }
+
+    my %resp = ( 
+        message            => "Configuration pulled from UNIS.",
+        last_pull_date     => $services_conf->last_pull(),
+        last_modified_date => "never",
+    );
+    
+    print "Content-type: text/json\n\n";
+    print encode_json(\%resp);
+}
 
 exit 0;
 

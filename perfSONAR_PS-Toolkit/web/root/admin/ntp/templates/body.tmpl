@@ -4,16 +4,37 @@
 <center><font color="red"><div id="web_admin_error">[% error_message %]</div></font></center>
 <center><div id="web_admin_status">[% status_message %]</div></center>
 
-<input type="hidden" id="nptoolkit_is_modified" value="[% is_modified %]" />
+<script type="text/javascript">
+function handle_reset() {
+    var node = dijit.byId('node_select').attr('value');
+    handle_cgi_ajax_call('Resetting configuration...', 'Problem resetting configuration', true, 'reset_config', node);
+}
 
-[% IF display_download %]
-<ul>
-<li><a target="_blank" href="[% self_url %]?fname=download_ntp_conf&session_id=[% session_id %]">Download ntp.conf file</a>
-</ul>
+function handle_save() {
+    var node = dijit.byId('node_select').attr('value');
+    handle_cgi_ajax_call('Saving configuration...', 'Problem saving configuration', true, 'save_config', node);
+}
+</script>
+
+<div>
+<table>
+<tr>
+  <td style="font-size: 14px; color: #039;">Node: </td>
+  <td>
+<form id="node_form" dojoType="dijit.form.Form">
+<select id='node_select' dojoType='dijit.form.FilteringSelect' autocomplete='false' value='' onChange='handle_node_select()'>
+    <option value='head'>Please select a node..</option>
+[% FOREACH pair IN nodes.pairs %]
+    <option value='[% pair.key %]' [% IF pair.value.selected %]selected='true'[% END %]>[% pair.value.name %]</option>
 [% END %]
+</select>
+</form>
+  </td>
+</tr>
+</table>
+</div>
 
-<input class="button" type="submit" name="save" id="save" value="Save" onClick="handle_cgi_ajax_call('Saving configuration and restarting services...', 'Problem saving configuration or restarting services', true, 'save_config');">
-<input class="button" type="submit" name="reset" id="reset" value="Reset" onClick="handle_cgi_ajax_call('Reseting configuration...', 'Problem reseting configuration', true, 'reset_config');">
+<input type="hidden" id="nptoolkit_is_modified" value="[% is_modified %]" />
 
 <div id="servers">
 <table class="group_table">
@@ -45,7 +66,7 @@
 <input class="button" type="submit" name="select_closest" id="select_closest" value="Select Closest Servers" onClick="handle_cgi_ajax_call('Querying servers to find closest...', 'Problem finding closest ntp services', true, 'select_closest', ['5']);">
 [% END %]
 <br>
-<input class="button" type="submit" name="save" id="save" value="Save" onClick="handle_cgi_ajax_call('Saving configuration and restarting services...', 'Problem saving configuration or restarting services', true, 'save_config');">
-<input class="button" type="submit" name="reset" id="reset" value="Reset" onClick="handle_cgi_ajax_call('Reseting configuration...', 'Problem reseting configuration', true, 'reset_config');">
+<input class="button" type="submit" name="save" id="save" value="Save" onClick="handle_save();">
+<input class="button" type="submit" name="reset" id="reset" value="Reset" onClick="handle_reset();">
 
 </div>
