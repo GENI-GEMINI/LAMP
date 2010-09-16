@@ -12,6 +12,8 @@ use Log::Log4perl qw(get_logger :easy :levels);
 use Net::IP;
 use Params::Validate;
 use Storable qw(store retrieve freeze thaw dclone);
+use Date::Parse;
+use Time::Local;
 
 use FindBin qw($RealBin);
 
@@ -37,6 +39,8 @@ my $config_file = $basedir . '/etc/web_admin.conf';
 my $conf_obj = Config::General->new( -ConfigFile => $config_file );
 our %conf = $conf_obj->getall;
 
+our %default_ports = ( pinger => undef, owamp => 891, bwctl => 4823 );
+
 $conf{sessions_directory} = "/tmp" unless ( $conf{sessions_directory} );
 $conf{sessions_directory} = $basedir . "/" . $conf{sessions_directory} unless ( $conf{sessions_directory} =~ /^\// );
 
@@ -51,7 +55,6 @@ if ( $conf{logger_conf} ) {
     Log::Log4perl->init( $conf{logger_conf} );
 }
 else {
-
     # If they've not specified a logger, send it all to /dev/null
     Log::Log4perl->easy_init( { level => $DEBUG, file => "/dev/null" } );
 }
@@ -93,35 +96,8 @@ else {
     save_state();
 }
 
-my $external_address;
-my $external_address_config = perfSONAR_PS::NPToolkit::Config::ExternalAddress->new();
-if ( $external_address_config->init() == 0 ) {
-    $external_address = $external_address_config->get_primary_address({});
-}
-
-unless ($external_address) {
-	reset_state();
-	save_state();
-	$error_msg = "There is no external address configured. No changes can be made until one is.";
-
-        my $html;
-        if ( $cgi->param( "session_id" ) ) {
-	    $html = display_body();
-        }
-        else {
-            my $tt = Template->new( INCLUDE_PATH => $conf{template_directory} ) or die( "Couldn't initialize template toolkit" );
-
-            my %full_page_vars = ();
-
-            fill_variables( \%full_page_vars );
-
-            $tt->process( "full_page.tmpl", \%full_page_vars, \$html ) or die $tt->error();
-        }
-
-	print "Content-Type: text/html\n\n";
-	print $html;
-	exit 0;
-}
+my $services_conf = perfSONAR_PS::NPToolkit::Config::Services->new();
+$services_conf->init( { unis_instance => $conf{unis_instance} } );
 
 if ($testing_conf->last_modified() > $initial_state_time) {
 	reset_state();
@@ -177,17 +153,23 @@ print $ajax->build_html( $cgi, $html, { '-Expires' => '1d' } );
 exit 0;
 
 sub save_config {
-    my ( $status, $res ) = $testing_conf->save( { restart_services => 1 } );
-    if ($status != 0) {
-        $error_msg = "Problem saving configuration: $res";
-    } else {
-        $status_msg = "Configuration Saved And Services Restarted";
-        $is_modified = 0;
-        $initial_state_time = $testing_conf->last_modified();
+    my ( $node_id ) = $cgi->param("args");
+    
+    if ( defined $node_id and $node_id ) {
+        $services_conf->enable_service( { node_id => $node_id, type => "regular_testing" } );
+        
+        my $regtest = $services_conf->lookup_service( { node_id => $node_id, type => "regular_testing" } );
+        
+        $regtest->{CONFIGURATION}->set_tests( { tests => $testing_conf->{TESTS} } );
+        $regtest->{CONFIGURATION}->set_local_port_ranges( { local_port_ranges => $testing_conf->{LOCAL_PORT_RANGES} } );
+        
+        $services_conf->save( { set_modified => 1 } );
     }
-
+    
+    reset_state();
     save_state();
-
+    
+    $status_msg = "Configuration Saved.";
     return display_body();
 }
 
@@ -211,15 +193,35 @@ sub reset_state {
 
     $lookup_info = undef;
     $dns_cache   = {};
-
+    
+    my ( $node_id ) = $cgi->param("args");
+    my $service = undef;
+    if ( defined $node_id and $node_id ) {
+        $service = $services_conf->lookup_service( { node_id => $node_id, type => "regular_testing" } );
+    }
+    
     $testing_conf = perfSONAR_PS::NPToolkit::Config::RegularTesting->new();
-    ( $status, $res ) = $testing_conf->init( { perfsonarbuoy_conf_template => $conf{perfsonarbuoy_conf_template}, perfsonarbuoy_conf_file => $conf{perfsonarbuoy_conf_file}, pinger_landmarks_file => $conf{pinger_landmarks_file} } );
+    if ( defined $service ) {
+        ( $status, $res ) = $testing_conf->init( { 
+                perfsonarbuoy_conf_template => $conf{perfsonarbuoy_conf_template}, 
+                perfsonarbuoy_conf_file     => $conf{perfsonarbuoy_conf_file},
+                pinger_landmarks_file       => $conf{pinger_landmarks_file},
+                local_port_ranges           => $service->{CONFIGURATION}->get_local_port_ranges(),
+                tests                       => $service->{CONFIGURATION}->get_tests(),
+            } );
+    }
+    else {
+        ( $status, $res ) = $testing_conf->init( { perfsonarbuoy_conf_template => $conf{perfsonarbuoy_conf_template}, perfsonarbuoy_conf_file => $conf{perfsonarbuoy_conf_file}, pinger_landmarks_file => $conf{pinger_landmarks_file} } );
+    }
+    
     if ( $status != 0 ) {
         return ( $status, "Problem reading testing configuration: $res" );
     }
 
     $is_modified = 0;
     $initial_state_time = $testing_conf->last_modified();
+    
+    return ( 0, "" );
 }
 
 sub save_state {
@@ -238,7 +240,16 @@ sub fill_variables {
     fill_variables_keywords( $vars );
     fill_variables_hosts( $vars );
     fill_variables_status( $vars );
-
+    
+    $vars->{nodes} = {};
+    my $nodes = $services_conf->get_config_nodes();
+    foreach my $node_id ( keys %{ $nodes } ) {
+        $vars->{nodes}->{$node_id}->{name} = $nodes->{$node_id}->{name};
+    }
+    
+    my ( $node_id ) = $cgi->param("args");
+    $vars->{nodes}->{$node_id}->{selected} = 1 if $node_id; 
+    
     $vars->{is_modified}    = $is_modified;
     $vars->{error_message}  = $error_msg;
     $vars->{status_message} = $status_msg;
@@ -286,29 +297,29 @@ sub fill_variables_status {
 
     my ($status, $res);
 
-    my ( $psb_owamp_enabled, $psb_bwctl_enabled, $psb_ma_enabled, $pinger_enabled );
-
-    my $services_conf = perfSONAR_PS::NPToolkit::Config::Services->new();
-    $res = $services_conf->init( { enabled_services_file => $conf{enabled_services_file} } );
-    if ( $res == 0 ) {
+    my ( $psb_owamp_enabled, $psb_bwctl_enabled, $psb_ma_enabled, $pinger_enabled ) = ( 0, 0, 0, 0 );
+    
+    my ( $node_id ) = $cgi->param("args"); 
+    
+    if ( $node_id ) {
         my $service_info;
 
-        $service_info = $services_conf->lookup_service( { name => "pinger" } );
+        $service_info = $services_conf->lookup_service( { node_id => $node_id, type => "pinger" } );
         if ( $service_info and $service_info->{enabled} ) {
             $pinger_enabled = 1;
         }
 
-        $service_info = $services_conf->lookup_service( { name => "perfsonarbuoy_bwctl" } );
+        $service_info = $services_conf->lookup_service( { node_id => $node_id, type => "perfsonarbuoy_bwctl" } );
         if ( $service_info and $service_info->{enabled} ) {
             $psb_bwctl_enabled = 1;
         }
 
-        $service_info = $services_conf->lookup_service( { name => "perfsonarbuoy_owamp" } );
+        $service_info = $services_conf->lookup_service( { node_id => $node_id, type => "perfsonarbuoy_owamp" } );
         if ( $service_info and $service_info->{enabled} ) {
             $psb_owamp_enabled = 1;
         }
 
-        $service_info = $services_conf->lookup_service( { name => "perfsonarbuoy_ma" } );
+        $service_info = $services_conf->lookup_service( { node_id => $node_id, type => "perfsonarbuoy_ma" } );
         if ( $service_info and $service_info->{enabled} ) {
             $psb_ma_enabled = 1;
         }
@@ -400,6 +411,16 @@ sub fill_variables_status {
     return 0;
 }
 
+#
+# GFR: Changed for LAMP.
+#   We just use the list of nodes we got from UNIS. Basically we consider
+#   that the names are resolvable, since this is the only way of making the
+#   tests go within the virtual topology (rather than through the control plane).
+#   We could also parse the addresses from the topo information, but we wouldn't
+#   know what is virtual and what isn't, because some sites might have private
+#   address spaces on the control/measurement planes.
+#   TODO: I think the long term solution is to make test members based on port's UNIS id.
+#
 sub fill_variables_hosts {
     my ( $vars ) = @_;
 
@@ -409,69 +430,50 @@ sub fill_variables_hosts {
 
     $logger->info( "display_found_hosts()" );
 
-    return 0 unless ( $current_test and $lookup_info->{$current_test} );
-
+    return 0 unless ( $current_test );
+    
     my ( $status, $res ) = $testing_conf->lookup_test( { test_id => $current_test } );
-    if ( $status == 0 ) {
-        my @addresses = ();
-
-        foreach my $member ( @{ $res->{members} } ) {
-            push @addresses, $member->{address};
-        }
-
-        lookup_addresses(\@addresses, $dns_cache);
-
-        $logger->debug("DNS cache: ".Dumper($dns_cache));
-
-        foreach my $member ( @{ $res->{members} } ) {
-            $logger->debug( "Used Address: " . $member->{address} );
-            $used_addresses{ $member->{address} } = 1;
-            if ($dns_cache->{$member->{address}}) {
-                foreach my $addr (@{ $dns_cache->{$member->{address}} }) {
-                    $used_addresses{ $addr } = 1;
-                    $logger->debug( "Used Address: " . $addr );
-                }
-            }
-        }
+    unless ( $status == 0 ) {
+        $error_msg = "Invalid test";
+        return;
     }
-
-    foreach my $host ( @{ $lookup_info->{$current_test}->{hosts} } ) {
-        my $exists;
-
-        foreach my $addr ( @{ $host->{"addresses"} } ) {
-            $logger->info( "Checking Address: " . $addr->{address} );
-            if ( $used_addresses{ $addr->{address} } ) {
-                $exists = 1;
-                last;
-            }
-        }
-
-        next if ( $exists );
-
+    
+    my $test = $res;
+    
+    my @hosts = ();
+    my $nodes = $services_conf->get_nodes();
+    foreach my $node_id ( keys %{ $nodes } ) {
+        my $node = $nodes->{ $node_id };
         my %service_info = ();
-        $service_info{"description"} = $host->{description};
-        $service_info{"addresses"}   = $host->{addresses};
-
-        push @display_hosts, \%service_info;
+        $service_info{"description"} = "";
+        $service_info{"address"}     = { address => $node->{name}, dns_name => $node->{name}, ip => undef, port => $default_ports{ $test->{type} } };
+        push @hosts, \%service_info;
     }
 
-    $vars->{hosts}   = \@display_hosts;
-    $vars->{keyword} = $lookup_info->{$current_test}->{keyword};
-    $vars->{check_time} = $lookup_info->{$current_test}->{check_time};
+    $vars->{hosts}      = \@hosts;
+    $vars->{check_time} = timelocal( strptime( $services_conf->last_pull(), "%Y-%m-%d %H:%M:%S" ) );
 
     return 0;
 }
 
+# GFR: Not used for GENI
 sub fill_variables_keywords {
     my ( $vars ) = @_;
+    
+    $vars->{member_keywords}            = [];
+    $vars->{known_keywords}             = [];
+    $vars->{known_keywords_check_time}  = undef;
 
+    return 0;
+    
+    # GFR: Disabled for GENI.
     my $keyword_client = perfSONAR_PS::Client::gLS::Keywords->new( { cache_directory => $conf{cache_directory} } );
 
     my ($status, $res);
 
     my @member_keywords          = ();
     my $administrative_info_conf = perfSONAR_PS::NPToolkit::Config::AdministrativeInfo->new();
-    $res                      = $administrative_info_conf->init( {} );
+    $res = $administrative_info_conf->init( {} );
     if ( $res == 0 ) {
         my $keywords = $administrative_info_conf->get_keywords();
         $logger->info( Dumper( $keywords ) );
@@ -555,7 +557,7 @@ sub display_body {
 }
 
 sub show_test {
-    my ( $test_id ) = @_;
+    my ( $node_id, $test_id ) = @_;
 
     my ( $status, $res ) = $testing_conf->lookup_test( { test_id => $test_id } );
     if ( $status != 0 ) {
@@ -571,7 +573,7 @@ sub show_test {
 }
 
 sub add_bwctl_throughput_test {
-    my ($description, $duration, $test_interval, $tool, $protocol, $window_size, $udp_bandwidth) = @_;
+    my ($node_id, $description, $duration, $test_interval, $tool, $protocol, $window_size, $udp_bandwidth) = @_;
 
     # Add the new group
     my ( $status, $res ) = $testing_conf->add_test_bwctl_throughput(
@@ -603,7 +605,7 @@ sub add_bwctl_throughput_test {
 }
 
 sub update_owamp_test_port_range {
-    my ($min_port, $max_port) = @_;
+    my ($node_id, $min_port, $max_port) = @_;
 
     my ($status, $res);
 
@@ -626,7 +628,7 @@ sub update_owamp_test_port_range {
 }
 
 sub update_bwctl_throughput_test {
-    my ($id, $description, $duration, $test_interval, $tool, $protocol, $window_size, $udp_bandwidth) = @_;
+    my ($node_id, $id, $description, $duration, $test_interval, $tool, $protocol, $window_size, $udp_bandwidth) = @_;
 
     my ( $status, $res );
 
@@ -652,7 +654,7 @@ sub update_bwctl_throughput_test {
 }
 
 sub add_owamp_test {
-    my ($description, $packet_interval, $packet_padding, $session_packets, $sample_packets, $bucket_width, $loss_threshold) = @_;
+    my ($node_id, $description, $packet_interval, $packet_padding, $session_packets, $sample_packets, $bucket_width, $loss_threshold) = @_;
 
     my ( $status, $res ) = $testing_conf->add_test_owamp(
         {
@@ -683,7 +685,7 @@ sub add_owamp_test {
 }
 
 sub update_owamp_test {
-    my ($id, $description, $packet_interval, $packet_padding, $session_packets, $sample_packets, $bucket_width, $loss_threshold) = @_;
+    my ($node_id, $id, $description, $packet_interval, $packet_padding, $session_packets, $sample_packets, $bucket_width, $loss_threshold) = @_;
 
     my ( $status, $res );
 
@@ -709,7 +711,7 @@ sub update_owamp_test {
 }
 
 sub add_pinger_test {
-    my ($description, $packet_size, $packet_count, $packet_interval, $test_interval, $test_offset, $ttl) = @_;
+    my ($node_id, $description, $packet_size, $packet_count, $packet_interval, $test_interval, $test_offset, $ttl) = @_;
 
     my ( $status, $res ) = $testing_conf->add_test_pinger(
         {
@@ -739,7 +741,7 @@ sub add_pinger_test {
 }
 
 sub update_pinger_test {
-    my ($id, $description, $packet_size, $packet_count, $packet_interval, $test_interval, $test_offset, $ttl) = @_;
+    my ($node_id, $id, $description, $packet_size, $packet_count, $packet_interval, $test_interval, $test_offset, $ttl) = @_;
 
     my ( $status, $res );
 
@@ -765,7 +767,7 @@ sub update_pinger_test {
 }
 
 sub add_member_to_test {
-    my ( $test_id, $address, $port, $description ) = @_;
+    my ($node_id, $test_id, $address, $port, $description ) = @_;
 
     my $hostname;
 
@@ -815,7 +817,7 @@ sub add_member_to_test {
 }
 
 sub remove_member_from_test {
-    my ( $test_id, $member_id ) = @_;
+    my ($node_id, $test_id, $member_id ) = @_;
 
     my ( $status, $res ) = $testing_conf->remove_test_member( { test_id => $test_id, member_id => $member_id } );
     if ( $status != 0 ) {
@@ -832,7 +834,7 @@ sub remove_member_from_test {
 }
 
 sub delete_test {
-    my ( $test_id ) = @_;
+    my ($node_id, $test_id ) = @_;
 
     $testing_conf->delete_test( { test_id => $test_id } );
 
@@ -845,16 +847,45 @@ sub delete_test {
 }
 
 sub lookup_servers {
-    my ( $test_id, $keyword ) = @_;
+    my ($node_id, $test_id, $keyword ) = @_;
 
     my ( $status, $res ) = $testing_conf->lookup_test( { test_id => $test_id } );
     unless ( $status == 0 ) {
         $error_msg = "Invalid test";
         return display_body();
     }
-
+    
+    #
+    # GFR: Changed for LAMP.
+    #   We just use the list of nodes we got from UNIS. Basically we consider
+    #   that the names are resolvable, since this is the only way of making the
+    #   tests go within the virtual topology (rather than through the control plane).
+    #   We could also parse the addresses from the topo information, but we wouldn't
+    #   know what is virtual and what isn't, because some sites might have private
+    #   address spaces on the control/measurement planes.
+    #   TODO: I think the long term solution is to make test members based on port id.
+    #
     my $test = $res;
+    
+    my @hosts = ();
+    foreach my $node ( $services_conf->get_nodes() ) {
+        my %service_info = ();
+        $service_info{"name"}        = $node->{name};
+        $service_info{"description"} = "";
+        $service_info{"dns_names"}   = [ $node->{name} ];
+        $service_info{"addresses"}   = [ { address => $node->{name}, dns_name => $node->{name}, ip => undef, port => undef } ];
+        push @hosts, \%service_info;
+    }
 
+    my %lookup_info = ();
+    $lookup_info{hosts}   = \@hosts;
+    $lookup_info->{$test_id} = \%lookup_info;
+
+    save_state();
+
+    $status_msg = "";
+    return display_body();
+    
     if ($conf{"use_cache"}) {
         ($status, $res) = lookup_servers_cache($test->{type}, $keyword);
     } else {
@@ -888,7 +919,7 @@ sub lookup_servers {
 
     lookup_addresses(\@addresses, $dns_cache);
 
-    my @hosts = ();
+    @hosts = ();
 
     foreach my $service (@{ $res->{hosts} }) {
         my @addrs = ();
@@ -963,7 +994,7 @@ sub lookup_servers {
         push @hosts, \%service_info;
     }
 
-    my %lookup_info = ();
+    %lookup_info = ();
     $lookup_info{hosts}   = \@hosts;
     $lookup_info{keyword} = $keyword;
     $lookup_info{check_time} = $res->{check_time};

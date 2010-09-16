@@ -59,6 +59,7 @@ function handle_pushpull_response(response, io_args) {
 	[% FOREACH node_pair IN nodes %]
 	    <tr><td class="top" colspan="2">Node [% node_pair.value.name %]</td></tr>
 	    [% FOREACH service_pair IN node_pair.value.SERVICES %]
+	       [% UNLESS service_pair.value.nodisplay %]
 	        <tr>
 	            <td class="middle">[% service_pair.value.name %][% IF service_pair.value.url %]<sup>[<a target="_blank" href="[% service_pair.value.url %]">1</a>]</sup>[% END %]</td>
 		        <td class="middle">
@@ -69,6 +70,7 @@ function handle_pushpull_response(response, io_args) {
 		            [% END %]
 		        </td>
 		    </tr>
+		   [% END %]
 		[% END %]
 		<tr><td class="bottom"></td></tr>
 	[% END %]

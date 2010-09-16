@@ -22,7 +22,7 @@ use Data::Dumper;
 
 use base 'perfSONAR_PS::NPToolkit::Config::Base';
 
-use fields 'UNIS_INSTANCE', 'ROOT', 'NODES', 'CONFIG_FILE', 'MODIFIED', 'LAST_PULL_DATE', 'LAST_MODIFIED_DATE';
+use fields 'UNIS_INSTANCE', 'ROOT', 'NODES', 'CONFIG_NODES', 'CONFIG_FILE', 'MODIFIED', 'LAST_PULL_DATE', 'LAST_MODIFIED_DATE';
 
 use Params::Validate qw(:all);
 use Log::Log4perl qw(get_logger :nowarn);
@@ -38,6 +38,7 @@ use perfSONAR_PS::Topology::ID qw(idBaseLevel);
 # Easier to load all handlers here (instead of ondemand) because of freeze/thaw.
 use perfSONAR_PS::NPToolkit::Config::Handlers::Base;
 use perfSONAR_PS::NPToolkit::Config::Handlers::NTP;
+use perfSONAR_PS::NPToolkit::Config::Handlers::RegularTesting;
 
 # XXX: Namespaces should be kept in a single module?
 use constant UNIS_NS     => 'http://ogf.org/schema/network/topology/unis/20100528/';
@@ -49,7 +50,7 @@ my %defaults = (
 
 my %known_services = (
     "unis" => {
-        disable     => 1,
+        nodisplay   => 1,
         type        => "unis",
         short_name  => "UNIS",
         name        => "Unified Network Information Service (UNIS)",
@@ -57,7 +58,7 @@ my %known_services = (
     },
 
     "hls"  => {
-        disable     => 1,
+        nodisplay   => 1,
         type        => "hls",
         short_name  => "hLS",
         name        => "Lookup Service",
@@ -75,7 +76,7 @@ my %known_services = (
     },
 
     "snmp_ma" => {
-        disable     => 1,
+        nodisplay   => 1,
         type        => "snmp_ma",
         short_name  => "SNMP MA",
         name        => "SNMP Measurement Archive",
@@ -85,7 +86,7 @@ my %known_services = (
     },
 
     "ndt" => {
-        disable     => 1,
+        nodisplay   => 1,
         type        => "ndt",
         short_name  => "NDT",
         name        => "Network Diagnostic Tester (NDT)",
@@ -95,7 +96,7 @@ my %known_services = (
     },
 
     "npad" => {
-        disable     => 1,
+        nodisplay   => 1,
         type        => "npad",
         short_name  => "NPAD",
         name        => "Network Path and Application Diagnosis (NPAD)",
@@ -103,7 +104,17 @@ my %known_services = (
         description => "Allows clients at other sites to run NPAD tests to this host.",
         module      => "perfSONAR_PS::NPToolkit::Config::Handlers::Base",
     },
-
+    
+    "regular_testing" => {
+        nodisplay   => 1,
+        type        => "regular_testing",
+        short_name  => "Regular Testing",
+        name        => "Regular Testing",
+        url         => "http://www.internet2.edu/performance/pS-PS/index.html",
+        description => "Defines regular tests for PingER and pSB. Transparent to the user.",
+        module      => "perfSONAR_PS::NPToolkit::Config::Handlers::RegularTesting",
+    },
+    
     "pinger" => {
         type        => "pinger",
         short_name  => "PingER",
@@ -134,7 +145,7 @@ my %known_services = (
     },
 
     "ssh" => {
-        disable     => 1,
+        nodisplay   => 1,
         type        => "ssh",
         short_name  => "SSH",
         name        => "SSH Server",
@@ -172,7 +183,7 @@ my %known_services = (
                        " of the throughput to and from their site over time.",
         module      => "perfSONAR_PS::NPToolkit::Config::Handlers::Base",
     },
-
+    
     "ntp" => {
         type        => "ntp",
         short_name  => "NTP",
@@ -330,7 +341,7 @@ sub reset_state {
 
 # GFR: There's a bug on the current UNIS implementation for the TS side
 #   that xQuery's won't work, only xPath 1.0 queries.
-use constant NODE_XPATH => "
+use constant CONFIG_NODE_XPATH => "
 //*[local-name()='node' and 
     namespace-uri()='" . UNIS_NS . "' and 
     ./*[local-name()='nodePropertiesBag' and 
@@ -338,22 +349,27 @@ use constant NODE_XPATH => "
                                              namespace-uri()='" . PSCONFIG_NS . "']]
 ";
 
+use constant NODE_XPATH => "//*[local-name()='node' and namespace-uri()='" . UNIS_NS . "']";
+
 sub pull_configuration {
     my ( $self, @params ) = @_;
     my $parameters = validate( @params, {} );
 
+    # Query all nodes so we can also use the non-configurable nodes as test members.
+    # XXX: Note that we rely on UNIS for filtering to our domain based on policy. 
+    # XXX: We might not need to get everything from all nodes though.
     my $unis = perfSONAR_PS::Client::Topology->new( $self->{UNIS_INSTANCE} );
-    my ( $status, $res ) = $unis->xQuery( NODE_XPATH );
+    my ( $status, $nodes ) = $unis->xQuery( NODE_XPATH );
    
     if ( $status != 0 ) {
-        my $msg = "Couldn't query UNIS: $res";
+        my $msg = "Couldn't query UNIS: $nodes";
         $self->{LOGGER}->error( $msg );
         return -1;
     }
     
     $self->{LAST_PULL_DATE} = strftime( "%Y-%m-%d %H:%M:%S", localtime );
     
-    $status = $self->parse_configuration( { node_list_root => $res } );
+    $status = $self->parse_configuration( { node_list_root => $nodes } );
     if ( $status != 0 ) {
          $self->{LOGGER}->error( "Couldn't parse pulled configuration." );
          return -1;
@@ -368,7 +384,8 @@ sub pull_configuration {
         
         # Rest of file should be the topology data of all 
         # psconfig-enabled nodes (i.e. what we just pulled).
-        print $fd $res->toString;
+        # TODO: Filter out only the config nodes according to CONFIG_NODE_XPATH.
+        print $fd $nodes->toString();
         
         $fd->close();            
     } or do {
@@ -398,10 +415,10 @@ sub push_configuration {
     
     my $new_topo = $res;
     
-    # Make sure that the topology information didn't change since our last pull.
-    # This is our current way to avoid getting new information (probably from other
-    # sources) overwritten because we modified a stale cache. (The user *will* lose
-    # his changes though.)
+    # Make sure that the topology information (of config nodes) didn't change since
+    # our last pull. This is our current way to avoid getting new information (probably
+    # from other sources) overwritten because we modified a stale cache. (The user
+    # *will* lose his changes though.)
     my $old_topo = '';
     eval {
         my $fd = new IO::File( $self->{CONFIG_FILE} ) or die " Failed to open config file.";
@@ -423,7 +440,7 @@ sub push_configuration {
     # TODO: String comparison is ugly here, since any difference
     #   (even in whitespaces) between the XMLs will be considered.
     #   Should check if XML::LibXML::Node::isSameNode works. 
-    unless ( $old_topo eq $new_topo->toString ) {
+    unless ( $old_topo eq $new_topo->toString() ) {
         # TODO: error msg
         my $msg = " The topology data in UNIS changed... : $@";
         $self->{LOGGER}->error( $msg );
@@ -437,10 +454,13 @@ sub push_configuration {
     # We change the encoded XML in place with the new configuration so that
     # we don't mess with other node related data (because UNIS only supports
     # replacing whole base topology elements for now). 
-    foreach my $node ( $new_topo->getChildrenByTagNameNS( UNIS_NS, "node" )->get_nodelist ) {
+    foreach my $node (  $new_topo->getChildrenByTagNameNS( UNIS_NS, "node" )->get_nodelist ) {
         my $node_id = $node->getAttribute( "id" );
         
-        my $psconfig_properties = $node->getElementsByTagNameNS( PSCONFIG_NS, "nodeProperties" )->[0];
+        my @node_properties = $node->getElementsByTagNameNS( PSCONFIG_NS, "nodeProperties" );
+        next unless scalar @node_properties > 0;
+        
+        my $psconfig_properties = $node_properties[0];
         
         # TODO: Policy
         
@@ -453,22 +473,22 @@ sub push_configuration {
             
             # No service of this type on our current state means that the service
             # had no configuration and was disabled (so we just remove it).
-            unless ( exists $self->{NODES}->{ $node_id }->{SERVICES}->{ $type } ) {
+            unless ( exists $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type } ) {
                 $psconfig_properties->removeChild( $service );
                 next;
             }
             
             # Delegate actual configuration updates to the service-specific module.
-            $self->{NODES}->{ $node_id }->{SERVICES}->{ $type }->{CONFIGURATION}->update_encoded( { service => $service } );
+            $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type }->{CONFIGURATION}->update_encoded( { service => $service } );
             
             $services_configured{ $type } = 1;
         }
         
         # Now we add the services that didn't exist on the node before.
-        foreach my $service_type ( keys %{ $self->{NODES}->{ $node_id }->{SERVICES} } ) {
+        foreach my $service_type ( keys %{ $self->{CONFIG_NODES}->{ $node_id }->{SERVICES} } ) {
             next if exists $services_configured{ $service_type };
             
-            $self->{NODES}->{ $node_id }->{SERVICES}->{ $service_type }->{CONFIGURATION}->add_encoded( { node_properties => $psconfig_properties } );
+            $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $service_type }->{CONFIGURATION}->add_encoded( { node_properties => $psconfig_properties } );
         }
     }
     
@@ -500,7 +520,6 @@ sub push_configuration {
         
         # TODO: not sure how're gonna disable the interface until we get the data.
     }
-    
 }
 
 =head2 parse_configuration ({ node_list_root => 1 })
@@ -516,6 +535,7 @@ sub parse_configuration {
     return -1 unless ( ref $node_list_root eq "XML::LibXML::Element" );
     
     $self->{NODES} = {};
+    $self->{CONFIG_NODES} = {};
     foreach my $node (  $node_list_root->getChildrenByTagNameNS( UNIS_NS, "node" )->get_nodelist ) {
         my $node_id = $node->getAttribute( "id" );
         
@@ -532,6 +552,7 @@ sub parse_configuration {
                 # Make sure it's not empty
                 if ( $name_val ) {
                     $self->{NODES}->{ $node_id }->{name} = $name_val;
+                    last;
                 }
             }
         }
@@ -540,24 +561,27 @@ sub parse_configuration {
             $self->{NODES}->{ $node_id }->{name} = idBaseLevel( $node_id );
         }
         
-        $self->{NODES}->{ $node_id }->{SERVICES} = {};
-        
         my @node_properties = $node->getElementsByTagNameNS( PSCONFIG_NS, "nodeProperties" );
-        unless ( scalar @node_properties == 1 ) { 
-            $self->{LOGGER}->error( " Invalid number of psconfig:nodeProperties for $node_id." );
-            next;
-        }
         
-        for my $service ( $node_properties[0]->getElementsByTagNameNS( PSCONFIG_NS, "service" ) ) {
-            my $service_type = $service->getAttribute( "type" );
+        if ( scalar @node_properties > 0 ) {
+            unless ( scalar @node_properties == 1 ) { 
+                $self->{LOGGER}->error( " Invalid number of psconfig:nodeProperties for $node_id." );
+                next;
+            }
             
-            # For now we only care about services we know about.
-            next unless exists $known_services{ $service_type };
-            
-            my $service_ref = $self->{NODES}->{ $node_id }->{SERVICES}->{ $service_type } = {};
-            $self->init_service( { type => $service_type, service => $service_ref } );
-            
-            $service_ref->{CONFIGURATION}->load_encoded( { service => $service } );
+            $self->{CONFIG_NODES}->{ $node_id }->{name} = $self->{NODES}->{ $node_id }->{name};
+               
+            for my $service ( $node_properties[0]->getElementsByTagNameNS( PSCONFIG_NS, "service" ) ) {
+                my $service_type = $service->getAttribute( "type" );
+                
+                # For now we only care about services we know about.
+                next unless exists $known_services{ $service_type };
+                
+                my $service_ref = $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $service_type } = {};
+                $self->init_service( { type => $service_type, service => $service_ref } );
+                
+                $service_ref->{CONFIGURATION}->load_encoded( { service => $service } );
+            }
         }
     }
     
@@ -572,8 +596,8 @@ sub parse_configuration {
 }
 
 =head2 get_nodes ({})
-    Returns the list of nodes as a hash indexed by UNIS id. The hash values are
-    hashes containing the node's properties (including a services hash).
+    Returns the list of nodes as a hash indexed by UNIS id. 
+    The hash values are hashes containing the node's properties.
 =cut
 
 sub get_nodes {
@@ -581,6 +605,19 @@ sub get_nodes {
     my $parameters = validate( @params, {} );
 
     return $self->{NODES};
+}
+
+=head2 get_config_nodes ({})
+    Returns the list of nodes that can be configured (tagged by having the 
+    psconfig:nodeProperties element) as a hash indexed by UNIS id. The hash
+    values are hashes containing the node's properties (including a SERVICES hash).
+=cut
+
+sub get_config_nodes {
+    my ( $self, @params ) = @_;
+    my $parameters = validate( @params, {} );
+
+    return $self->{CONFIG_NODES};
 }
 
 =head2 get_services ({ node_id => 1 })
@@ -592,7 +629,7 @@ sub get_services {
     my ( $self, @params ) = @_;
     my $parameters = validate( @params, { node_id => 1, } );
 
-    return $self->{NODES}->{ $parameters->{node_id} }->{SERVICES};
+    return $self->{CONFIG_NODES}->{ $parameters->{node_id} }->{SERVICES};
 }
 
 =head2 get_known_services ({ })
@@ -619,9 +656,9 @@ sub lookup_service {
     my $node_id = $parameters->{node_id};
     my $type    = $parameters->{type};
     
-    return undef unless exists $self->{NODES}->{ $node_id }->{SERVICES}->{ $type };
+    return undef unless exists $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type };
     
-    return $self->{NODES}->{ $node_id }->{SERVICES}->{ $type };
+    return $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type };
 }
 
 # TODO: The service ref should be directly an instance of the handler for this service.
@@ -654,10 +691,10 @@ sub enable_service {
     my $node_id = $parameters->{node_id};
     my $type = $parameters->{type};
     
-    unless ( exists $self->{NODES}->{ $node_id }->{SERVICES}->{ $type } ) {
+    unless ( exists $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type } ) {
         # New service enabled. There's currently some redundancy between
         # this module and the handler regarding enabling/disabling.
-        my $service_ref = $self->{NODES}->{ $node_id }->{SERVICES}->{ $type } = {};
+        my $service_ref = $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type } = {};
         $self->init_service( { type => $type, service => $service_ref } );
         
         $service_ref->{enabled} = 1;
@@ -665,9 +702,9 @@ sub enable_service {
         return 0;
     }
     
-    return 0 unless $self->{NODES}->{ $node_id }->{SERVICES}->{ $type }->{enabled};
+    return 0 unless $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type }->{enabled};
     
-    $self->{NODES}->{ $node_id }->{SERVICES}->{ $type }->{CONFIGURATION}->enable();
+    $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type }->{CONFIGURATION}->enable();
     $self->{MODIFIED} = 1;
     
     return 0;
@@ -685,14 +722,14 @@ sub disable_service {
     my $node_id = $parameters->{node_id};
     my $type = $parameters->{type};
     
-    return 0 unless exists $self->{NODES}->{ $node_id }->{SERVICES}->{ $type };
-    return 0 unless $self->{NODES}->{ $node_id }->{SERVICES}->{ $type }->{enabled};
+    return 0 unless exists $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type };
+    return 0 unless $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type }->{enabled};
     
-    $self->{NODES}->{ $node_id }->{SERVICES}->{ $type }->{CONFIGURATION}->disable();
+    $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type }->{CONFIGURATION}->disable();
     
     # We simply remove the service if there's no configuration associated.
-    if ( $self->{NODES}->{ $node_id }->{SERVICES}->{ $type }->{CONFIGURATION}->is_empty() ) {
-        delete $self->{NODES}->{ $node_id }->{SERVICES}->{ $type };
+    if ( $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type }->{CONFIGURATION}->is_empty() ) {
+        delete $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type };
     }
     
     $self->{MODIFIED} = 1;
@@ -740,6 +777,7 @@ sub save_state {
     my %state = (
         UNIS_INSTANCE       => $self->{UNIS_INSTANCE},
         NODES               => $self->{NODES},
+        CONFIG_NODES        => $self->{CONFIG_NODES},
         LAST_PULL_DATE      => $self->{LAST_PULL_DATE},
         LAST_MODIFIED_DATE  => $self->{LAST_MODIFIED_DATE},
     );
@@ -766,6 +804,7 @@ sub restore_state {
     
     $self->{UNIS_INSTANCE}      = $state->{UNIS_INSTANCE};
     $self->{NODES}              = $state->{NODES};
+    $self->{CONFIG_NODES}       = $state->{CONFIG_NODES};
     $self->{LAST_PULL_DATE}     = $state->{LAST_PULL_DATE};
     $self->{LAST_MODIFIED_DATE} = $state->{LAST_MODIFIED_DATE};
     
@@ -787,6 +826,7 @@ sub clear_state {
     unlink ( $self->{CONFIG_FILE} . ".frozen" );
     
     $self->{NODES}              = undef;
+    $self->{CONFIG_NODES}       = undef;
     $self->{LAST_PULL_DATE}     = undef;
     $self->{LAST_MODIFIED_DATE} = undef;
     $self->{MODIFIED}           = undef;

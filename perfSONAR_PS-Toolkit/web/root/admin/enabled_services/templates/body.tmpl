@@ -203,7 +203,7 @@ function select_latency_services() {
         <th></th><th>Services</th><th>Description</th>
         </tr>
         [% FOREACH pair IN services.pairs %]
-            [% UNLESS pair.value.disable %]
+            [% UNLESS pair.value.nodisplay %]
         <tr>
                 <td><input type="checkbox" onClick="dojo.byId('nptoolkit_is_modified').value='1'" dojoType="dijit.form.CheckBox" value="on" id="[% pair.key %]" name="[% pair.key %]" [% IF pair.value.enabled %] checked="checked" [% END %] /></td>
                 <td>[% pair.value.name %]</td>

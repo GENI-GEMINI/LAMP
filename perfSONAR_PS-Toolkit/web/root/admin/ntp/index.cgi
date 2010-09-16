@@ -136,7 +136,7 @@ sub fill_variables {
 
     my @vars_servers = ();
     
-    my $nodes = $services_conf->get_nodes();
+    my $nodes = $services_conf->get_config_nodes();
     
     my %ntp_nodes = ();
     foreach my $node_id ( keys %{ $nodes } ) {

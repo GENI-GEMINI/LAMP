@@ -95,7 +95,7 @@ sub fill_variables {
         $vars->{error_message}  = "Couldn't initialize Services Configuration";
         return -1;
     } else {
-        $vars->{nodes} = $services_conf->get_nodes();
+        $vars->{nodes} = $services_conf->get_config_nodes();
         unless ( keys %{ $vars->{nodes} } ) {
             $vars->{error_message}  = "There are no nodes to configure.";
             return -1;

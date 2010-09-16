@@ -3,32 +3,43 @@
 [% INCLUDE header.tmpl %]
 
 <script type="text/javascript">
+function handle_reset () {
+    handle_reset_config();
+}
+
 function handle_reset_config() {
-	handle_cgi_ajax_call('Reseting configuration...', 'Problem reseting configuration', true, 'reset_config');
+    var node = dijit.byId('node_select').attr('value');
+	handle_cgi_ajax_call('Reseting configuration...', 'Problem reseting configuration', true, 'reset_config', [ node ]);
 }
 
 function handle_save_config() {
-	handle_cgi_ajax_call('Saving configuration and restarting services...', 'Problem saving configuration or restarting services', true, 'save_config');
+    var node = dijit.byId('node_select').attr('value');
+	handle_cgi_ajax_call('Saving configuration...', 'Problem saving configuration', true, 'save_config', [ node ]);
 }
 
 function handle_lookup_host(test_id, keyword) {
+    var node = dijit.byId('node_select').attr('value');
 	handle_cgi_ajax_call('Looking up hosts from community '+keyword+'...', 'Problem looking up hosts', true, 'lookup_servers', [ test_id, keyword ]);
 }
 
 function show_test(test_id) {
-	handle_cgi_ajax_call(null, 'Problem looking up test', true, 'show_test', [ test_id ]);
+    var node = dijit.byId('node_select').attr('value');
+	handle_cgi_ajax_call(null, 'Problem looking up test', true, 'show_test', [ node, test_id ]);
 }
 
 function remove_test(test_id) {
-	handle_cgi_ajax_call(null, 'Problem removing test', true, 'delete_test', [ test_id ]);
+    var node = dijit.byId('node_select').attr('value');
+	handle_cgi_ajax_call(null, 'Problem removing test', true, 'delete_test', [ node, test_id ]);
 }
 
 function add_test_member(test_id, address, port, description) {
-	handle_cgi_ajax_call(null, 'Problem adding host to test', true, 'add_member_to_test', [ test_id, address, port, description ]);
+    var node = dijit.byId('node_select').attr('value');
+	handle_cgi_ajax_call(null, 'Problem adding host to test', true, 'add_member_to_test', [ node, test_id, address, port, description ]);
 }
 
 function remove_test_member(test_id, member_id) {
-	handle_cgi_ajax_call(null, 'Problem adding host to test', true, 'remove_member_from_test', [ test_id, member_id ]);
+    var node = dijit.byId('node_select').attr('value');
+	handle_cgi_ajax_call(null, 'Problem adding host to test', true, 'remove_member_from_test', [ node, test_id, member_id ]);
 }
 
 function ps_toggle(obj) {
@@ -56,31 +67,35 @@ function close_dialog(dialog_name) {
 }
 
 function modify_owamp_port_range(min_port, max_port) {
-	handle_cgi_ajax_call(null, 'Problem updating port range', true, 'update_owamp_test_port_range', [min_port, max_port]);
+    var node = dijit.byId('node_select').attr('value');
+	handle_cgi_ajax_call(null, 'Problem updating port range', true, 'update_owamp_test_port_range', [node, min_port, max_port]);
 }
 
 
 function modify_psb_bwctl_test(test_id, description, test_duration, test_interval, bandwidth_tester, protocol, window_size, udp_bandwidth) {
+    var node = dijit.byId('node_select').attr('value');
 	if (test_id) {
-		handle_cgi_ajax_call(null, 'Problem updating test', true, 'update_bwctl_throughput_test', [ test_id, description, test_duration, test_interval, bandwidth_tester, protocol, window_size, udp_bandwidth ]);
+		handle_cgi_ajax_call(null, 'Problem updating test', true, 'update_bwctl_throughput_test', [ node, test_id, description, test_duration, test_interval, bandwidth_tester, protocol, window_size, udp_bandwidth ]);
 	} else {
-		handle_cgi_ajax_call(null, 'Problem adding test', true, 'add_bwctl_throughput_test', [ description, test_duration, test_interval, bandwidth_tester, protocol, window_size, udp_bandwidth ]);
+		handle_cgi_ajax_call(null, 'Problem adding test', true, 'add_bwctl_throughput_test', [ node, description, test_duration, test_interval, bandwidth_tester, protocol, window_size, udp_bandwidth ]);
 	}
 }
 
 function modify_psb_owamp_test(test_id, description, packet_interval, packet_padding, session_packets, sample_packets, bucket_width, loss_threshold) {
+    var node = dijit.byId('node_select').attr('value');
 	if (test_id) {
-		handle_cgi_ajax_call(null, 'Problem updating test', true, 'update_owamp_test', [ test_id, description, packet_interval, packet_padding, session_packets, sample_packets, bucket_width, loss_threshold ]);
+		handle_cgi_ajax_call(null, 'Problem updating test', true, 'update_owamp_test', [ node, test_id, description, packet_interval, packet_padding, session_packets, sample_packets, bucket_width, loss_threshold ]);
 	} else {
-		handle_cgi_ajax_call(null, 'Problem adding test', true, 'add_owamp_test', [ description, packet_interval, packet_padding, session_packets, sample_packets, bucket_width, loss_threshold ]);
+		handle_cgi_ajax_call(null, 'Problem adding test', true, 'add_owamp_test', [ node, description, packet_interval, packet_padding, session_packets, sample_packets, bucket_width, loss_threshold ]);
 	}
 }
 
 function modify_pinger_test(test_id, description, packet_size, packet_count, packet_interval, test_interval, test_offset, ttl) {
+    var node = dijit.byId('node_select').attr('value');
 	if (test_id != null) {
-		handle_cgi_ajax_call(null, 'Problem updating test', true, 'update_pinger_test', [ test_id, description, packet_size, packet_count, packet_interval, test_interval, test_offset, ttl ]);
+		handle_cgi_ajax_call(null, 'Problem updating test', true, 'update_pinger_test', [ node, test_id, description, packet_size, packet_count, packet_interval, test_interval, test_offset, ttl ]);
 	} else {
-		handle_cgi_ajax_call(null, 'Problem adding test', true, 'add_pinger_test', [ description, packet_size, packet_count, packet_interval, test_interval, test_offset, ttl ]);
+		handle_cgi_ajax_call(null, 'Problem adding test', true, 'add_pinger_test', [ node, description, packet_size, packet_count, packet_interval, test_interval, test_offset, ttl ]);
 	}
 }
 
@@ -584,7 +599,8 @@ function display_add_new_host_dialog(test_id, test_type) {
 												var address = dijit.byId('dialog_test_add_host_address').attr('value');
 												var port = dijit.byId('dialog_test_add_host_port').attr('value');
 												var description = dijit.byId('dialog_test_add_host_description').attr('value');
-												handle_cgi_ajax_call(null, 'Problem adding host to test', true, 'add_member_to_test', [ test_id, address, port, description ]);
+												var node = dijit.byId('node_select').attr('value');
+												handle_cgi_ajax_call(null, 'Problem adding host to test', true, 'add_member_to_test', [ node, test_id, address, port, description ]);
 												dijit.byId('add_test_dialog').hide();
 											}
 											, test_id));

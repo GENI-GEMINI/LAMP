@@ -63,7 +63,7 @@ my $function = $cgi->param("fname");
 unless ( $function ) {
     $vars{site_name}          = $administrative_info_conf->get_organization_name();
     $vars{site_location}      = $administrative_info_conf->get_location();
-    $vars{nodes}              = $services_conf->get_nodes();
+    $vars{nodes}              = $services_conf->get_config_nodes();
     $vars{last_pull_date}     = $services_conf->last_pull();
     $vars{last_modified_date} = $services_conf->last_modified();
 

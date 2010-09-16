@@ -4,6 +4,24 @@
 <center><font color="red"><div id="web_admin_error">[% error_message %]</div></font></center>
 <center><div id="web_admin_status">[% status_message %]</div></center>
 
+<div>
+  <table>
+    <tr>
+      <td style="font-size: 14px; color: #039;">Node: </td>
+      <td>
+        <form id="node_form" dojoType="dijit.form.Form">
+          <select id='node_select' dojoType='dijit.form.FilteringSelect' autocomplete='false' value='' onChange='handle_node_select()'>
+            <option value='head'>Please select a node..</option>
+            [% FOREACH pair IN nodes.pairs %]
+            <option value='[% pair.key %]' [% IF pair.value.selected %]selected='true'[% END %]>[% pair.value.name %]</option>
+            [% END %]
+          </select>
+        </form>
+      </td>
+    </tr>
+  </table>
+</div>
+
 <input type="hidden" id="nptoolkit_is_modified" value="[% is_modified %]" />
 
 <input type="hidden" id="throughput_tests" value="[% throughput_tests %]" />
@@ -108,14 +126,10 @@
 </div>
 
 [% IF current_test %]
-<div class="subTitle1">Find Hosts To Test With</div>
+<div class="subTitle1">Nodes in Slice Topology</div>
 
 <div id="known_hosts">
 [% INCLUDE known_hosts.tmpl %]
-</div>
-
-<div id="known_keywords">
-[% INCLUDE known_keywords.tmpl %]
 </div>
 [% END %]
 

@@ -27,7 +27,9 @@ use XML::LibXML;
 use English qw( -no_match_vars );
 
 use base 'Exporter';
-our @EXPORT = qw( readXML defaultMergeMetadata countRefs genuid extract reMap consultArchive find findvalue escapeString unescapeString makeEnvelope mapNamespaces mergeConfig mergeHash mergeNodes_general parseToDOM duplicateHash );
+our @EXPORT = qw( readXML defaultMergeMetadata countRefs genuid extract reMap consultArchive 
+        find findvalue escapeString unescapeString makeEnvelope mapNamespaces mergeConfig
+        mergeHash mergeNodes_general parseToDOM duplicateHash extract_first );
 
 my %noremap_ns = (
     "http://www.w3.org/2000/09/xmldsig#" => 1,
@@ -663,7 +665,7 @@ field.
 =cut
 
 sub extract {
-    my ( $node, $clean ) = @_;
+    my ( $node, $clean, $trim ) = @_;
     my $logger = get_logger( "perfSONAR_PS::Common" );
     if ( defined $node and $node ) {
         if ( $node->getAttribute( "value" ) ) {
@@ -674,12 +676,39 @@ sub extract {
             if ( $clean ) {
                 $value =~ s/\s*//g;
             }
+            elsif ( $trim ) {
+                $value =~ s/^\s*//g;
+                $value =~ s/\s*$//g;
+            }
             if ( $value ) {
                 return $value;
             }
         }
     }
-    return;
+    return undef;
+}
+
+=head2 extract_first($node, $name, $ns, $clean, $trim)
+
+Returns a 'value' from the first ($ns:)$name xml element descendant of $node. 
+'value' is either the value attribute or the text field.
+
+=cut
+
+sub extract_first {
+    my ( $node, $name, $ns, $clean, $trim ) = @_;
+    
+    my $node_list;
+    if ( $ns ) {
+        $node_list = $node->getElementsByTagNameNS( $ns, $name );
+    }
+    else {
+        $node_list = $node->getElementsByTagName( $name );
+    }
+    
+    return undef unless $node_list->size();
+    
+    return extract( $node_list->get_node( 0 ), $clean, $trim );
 }
 
 =head2 mapNamespaces($node, \%namespaces)

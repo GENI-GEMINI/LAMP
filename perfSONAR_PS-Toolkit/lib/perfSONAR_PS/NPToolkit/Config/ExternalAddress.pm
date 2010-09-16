@@ -37,8 +37,8 @@ use perfSONAR_PS::NPToolkit::Config::hLS;
 use perfSONAR_PS::NPToolkit::Config::LSRegistrationDaemon;
 use perfSONAR_PS::NPToolkit::ConfigManager::Utils qw( save_file restart_service );
 
-# These are the defaults for the current NPToolkit
-my %defaults = ( external_address_file => "/opt/perfsonar_ps/toolkit/etc/external_addresses", );
+# These are the defaults for LAMP
+my %defaults = ( external_address_file => "/usr/local/etc/external_addresses", );
 
 =head2 init({ external_address_file => 0 })
 

@@ -58,11 +58,11 @@ use perfSONAR_PS::Utils::DNS qw( reverse_dns resolve_address );
 use perfSONAR_PS::Common qw(genuid);
 use perfSONAR_PS::NPToolkit::Config::ExternalAddress;
 
-# These are the defaults for the current NPToolkit
+# These are the defaults for LAMP
 my %defaults = (
-    perfsonarbuoy_conf_template => "/opt/perfsonar_ps/toolkit/templates/config/owmesh_conf.tmpl",
-    perfsonarbuoy_conf_file     => "/opt/perfsonar_ps/perfsonarbuoy_ma/etc/owmesh.conf",
-    pinger_landmarks_file       => "/opt/perfsonar_ps/PingER/etc/pinger-landmarks.xml",
+    perfsonarbuoy_conf_template => "/usr/local/etc/owmesh_conf.tmpl",
+    perfsonarbuoy_conf_file     => "/usr/local/etc/owmesh.conf",
+    pinger_landmarks_file       => "/usr/local/etc/pinger_landmarks.xml",
 );
 
 =head2 init({ perfsonarbuoy_conf_template => 0, perfsonarbuoy_conf_file => 0, pinger_landmarks_file => 0 })
@@ -81,6 +81,9 @@ sub init {
             perfsonarbuoy_conf_template => 0,
             perfsonarbuoy_conf_file     => 0,
             pinger_landmarks_file       => 0,
+            local_addresses             => 0,
+            local_port_ranges           => 0,
+            tests                       => 0,
         }
     );
 
@@ -100,10 +103,18 @@ sub init {
     $self->{PERFSONARBUOY_CONF_FILE}     = $parameters->{perfsonarbuoy_conf_file}     if ( $parameters->{perfsonarbuoy_conf_file} );
     $self->{PINGER_LANDMARKS_CONF_FILE}  = $parameters->{pinger_landmarks_file}       if ( $parameters->{pinger_landmarks_file} );
 
-    ( $status, $res ) = $self->reset_state();
-    if ( $status != 0 ) {
-        return ( $status, $res );
+    unless ( $parameters->{tests} ) {
+        ( $status, $res ) = $self->reset_state();
+        if ( $status != 0 ) {
+            return ( $status, $res );
+        }
+        
+        return ( 0, "" );
     }
+    
+    $self->{LOCAL_ADDRS}        = dclone( $parameters->{local_addresses} ) if $parameters->{local_addresses};
+    $self->{LOCAL_PORT_RANGES}  = dclone( $parameters->{local_ports} )  if $parameters->{local_ports};
+    $self->{TESTS}              = dclone( $parameters->{tests} );
 
     return ( 0, "" );
 }
@@ -746,10 +757,11 @@ sub add_test_member {
 
     return ( -1, "Test does not exist" ) unless ( $test );
 
-    my $name    = $parameters->{name};
-    my $address = $parameters->{address};
-
-    if ( $test->{type} eq "pinger" ) {
+    my $name     = $parameters->{name};
+    my $address  = $parameters->{address};
+    
+    # GFR: (LAMP) we delay resolving the hostnames to the client-side configuration step.
+    if ( undef and $test->{type} eq "pinger" ) {
 
         # PingER tests are specified using the IP address...
         if ( is_ipv4( $address ) or &Net::IPv6Addr::is_ipv6( $address ) ) {
@@ -762,20 +774,18 @@ sub add_test_member {
             }
             else {
                 $self->{LOGGER}->warn( "No hostname for $address, specifying $address as the hostname" );
-                $name = $address;
+                $name = $address unless $name;
             }
         }
         elsif ( is_hostname( $address ) ) {
             my $hostname = $address;
             my @addresses = resolve_address( $address );
-            unless ( $addresses[0] ) {
-                return ( -1, "Can't resolve $address" );
-            }
- 
-            $name = $hostname unless ($name);
-            $address = $addresses[0];
+            if ( $addresses[0] ) {
+                $name = $hostname unless ($name);
+                $address = $addresses[0];
 
-            $self->{LOGGER}->debug( "Resolved(resolve): $name -> $address" );
+                $self->{LOGGER}->debug( "Resolved(resolve): $name -> $address" );
+            }
         }
         else {
             return ( -1, "Unknown address type" );
