@@ -25,7 +25,6 @@ use perfSONAR_PS::Common qw(extract find mergeHash);
 
 use constant PSCONFIG_PINGER_NS     => 'http://ogf.org/schema/network/topology/psconfig/pinger/20100813';
 # XXX: The following constants should really be on a PingER module
-use constant DEFAULT_RC_FILE        => '/etc/init.d/PingER.sh';
 use constant DEFAULT_LANDMARKS_FILE => '/opt/perfsonar_ps/PingER/etc/pinger-landmarks.xml';
 
 =head1 API
@@ -45,18 +44,6 @@ sub init {
     
     $self->{CONF} = mergeHash( $self->{CONF}, $self->{CONF}->{"pinger"}, {} ) if exists $self->{CONF}->{"pinger"};
     
-    if ( exists $self->{CONF}->{"rc_file"} and $self->{CONF}->{"rc_file"} ) {
-        $self->{RC_FILE} = $self->{CONF}->{"rc_file"};
-    }
-    else {
-        $self->{RC_FILE} = DEFAULT_RC_FILE;
-    }
-    
-    unless ( -e $self->{RC_FILE} ) {
-        $self->{LOGGER}->error( "rc file (" . $self->{RC_FILE} . ") not found." );
-        return -1;
-    }
-    
     if ( exists $self->{CONF}->{"landmarks_file"} and $self->{CONF}->{"landmarks_file"} ) {
         $self->{LANDMARKS_FILE} = $self->{CONF}->{"landmarks_file"};
     }
@@ -74,7 +61,10 @@ TODO:
 =cut
 
 sub apply {
-    my ( $self, $node, $last_config, $changed ) = @_;
+    my ( $self, $node, $last_config, $changed, $first_run, $failed_last ) = @_;
+    
+    my $force_run = ( $changed or $failed_last or $first_run );
+    return 0 unless $force_run;
     
     my $service = find( $node, './/*[local-name()="service" and @type="pinger"]', 1 );
     
@@ -83,17 +73,12 @@ sub apply {
         return 0;
     }
     
-    # we do this anyway in case the service needs to restarted/stopped
-    $self->manageService( $service->getAttribute( "enable" ) ) if $service->hasAttribute( "enable" );
-    
-    return 0 if not $changed;
-    
     # Something completely unrelated on the node config could have changed,
     # so we try to check if our pinger config did or not (note that this
     # way of checking will treat any textual change as significant).
     my $old_service = find( $last_config, './/*[local-name()="service" and @type="pinger"]', 1 );
      
-    return 0 if $old_service and $old_service->toString eq $service->toString;
+    return 0 if not $force_run and $old_service and $old_service->toString eq $service->toString;
     
     # value defines if field value should be cleaned (see extract)
     my %landmark_fields = (
@@ -141,25 +126,6 @@ sub apply {
     
     # for now, we never change the node config
     return 0; 
-}
-
-sub manageService {
-    my ( $self, $enable ) = @_;
-    my ( $status, $output );
-    
-    if ( $enable eq "true" ) {
-        $output = qx/$self->{RC_FILE} start/;
-        $status = $? >> 8;
-    }
-    elsif ( $enable eq "false" ) {
-        $output = qx/$self->{RC_FILE} stop/;
-        $status = $? >> 8;
-    }
-    else {
-        return ( -1, "Unknown value for service enable received." );
-    }
-    
-    return ( $status, $output );
 }
 
 #
@@ -324,8 +290,8 @@ sub check_row {
     unless ( $mark->{ip} ) {
         unless ( $dns_cache_h->{ $mark->{hostname} } ) {
             #
-            # GFR: Net::DNS::Resolver does not use /etc/hosts.
-            #   This is a big problem in GENI (but why not gethostbyname?).
+            # GFR: Net::DNS::Resolver does not use /etc/hosts. This is a big
+            #   problem in GENI (was there a reason for not using gethostbyname?).
             #
             #( $mark->{ip} ) = resolve_address( $mark->{hostname} );
             

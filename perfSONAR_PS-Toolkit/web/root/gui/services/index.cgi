@@ -17,7 +17,7 @@ my $basedir = "$RealBin/";
 use lib "$RealBin/../../../../lib";
 
 use perfSONAR_PS::NPToolkit::Config::AdministrativeInfo;
-use perfSONAR_PS::NPToolkit::Config::Services;
+use perfSONAR_PS::NPToolkit::Config::pSConfig;
 
 my $config_file = $basedir . '/etc/web_admin.conf';
 my $conf_obj = Config::General->new( -ConfigFile => $config_file );
@@ -44,9 +44,9 @@ if ( $conf{debug} ) {
     $logger->level( $DEBUG );
 }
 
-my $services_conf = perfSONAR_PS::NPToolkit::Config::Services->new();
+my $psconf = perfSONAR_PS::NPToolkit::Config::pSConfig->new();
 # TODO: Load this from node.info
-$services_conf->init( { unis_instance => "https://127.0.0.1:8012/perfSONAR_PS/services/unis" } );
+$psconf->init( { unis_instance => "https://127.0.0.1:8012/perfSONAR_PS/services/unis" } );
 
 my $administrative_info_conf = perfSONAR_PS::NPToolkit::Config::AdministrativeInfo->new();
 $administrative_info_conf->init( { administrative_info_file => $conf{administrative_info_file} } );
@@ -63,9 +63,9 @@ my $function = $cgi->param("fname");
 unless ( $function ) {
     $vars{site_name}          = $administrative_info_conf->get_organization_name();
     $vars{site_location}      = $administrative_info_conf->get_location();
-    $vars{nodes}              = $services_conf->get_config_nodes();
-    $vars{last_pull_date}     = $services_conf->last_pull();
-    $vars{last_modified_date} = $services_conf->last_modified();
+    $vars{nodes}              = $psconf->get_config_nodes();
+    $vars{last_pull_date}     = $psconf->last_pull();
+    $vars{last_modified_date} = $psconf->last_modified();
 
     unless ( $vars{last_modified_date} ) {
         $vars{last_modified_date} = "never";
@@ -87,9 +87,9 @@ else {
 }
 
 sub push_config {
-    my $res = $services_conf->push_configuration();
-    if ( $res != 0 ) {
-        my %resp = ( error => "Couldn't push Services Configuration." );
+    my ($status, $res) = $psconf->push_configuration();
+    if ( $status != 0 ) {
+        my %resp = ( error => "Couldn't push Services Configuration: $res" );
         print "Content-type: text/json\n\n";
         print encode_json(\%resp);
         return;
@@ -97,7 +97,7 @@ sub push_config {
 
     my %resp = ( 
         message            => "Configuration pushed to UNIS.",
-        last_pull_date     => $services_conf->last_pull(),
+        last_pull_date     => $psconf->last_pull(),
         last_modified_date => "never",
     );
     
@@ -106,7 +106,7 @@ sub push_config {
 }
 
 sub pull_config {
-    my $res = $services_conf->pull_configuration();
+    my $res = $psconf->pull_configuration();
     if ( $res != 0 ) {
         my %resp = ( error => "Couldn't pull Services Configuration." );
         print "Content-type: text/json\n\n";
@@ -116,7 +116,7 @@ sub pull_config {
 
     my %resp = ( 
         message            => "Configuration pulled from UNIS.",
-        last_pull_date     => $services_conf->last_pull(),
+        last_pull_date     => $psconf->last_pull(),
         last_modified_date => "never",
     );
     

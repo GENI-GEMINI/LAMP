@@ -22,225 +22,164 @@ use Data::Dumper;
 
 use base 'perfSONAR_PS::NPToolkit::Config::Base';
 
-use fields 'UNIS_INSTANCE', 'ROOT', 'NODES', 'CONFIG_NODES', 'CONFIG_FILE', 'MODIFIED', 'LAST_PULL_DATE', 'LAST_MODIFIED_DATE';
+use fields 'SERVICES', 'ENABLED_SERVICES_FILE';
 
 use Params::Validate qw(:all);
 use Log::Log4perl qw(get_logger :nowarn);
 use Storable qw(store retrieve freeze thaw dclone);
-use Date::Parse;
-use POSIX qw(strftime);
-use Time::Local;
 
-use perfSONAR_PS::Common qw(extract parseToDOM);
-use perfSONAR_PS::Client::Topology;
-use perfSONAR_PS::Topology::ID qw(idBaseLevel);
+use perfSONAR_PS::NPToolkit::ConfigManager::Utils qw( save_file start_service restart_service stop_service );
 
-# Easier to load all handlers here (instead of ondemand) because of freeze/thaw.
-use perfSONAR_PS::NPToolkit::Config::Handlers::Base;
-use perfSONAR_PS::NPToolkit::Config::Handlers::NTP;
-use perfSONAR_PS::NPToolkit::Config::Handlers::RegularTesting;
+# These are the defaults for LAMP
+my %defaults = ( enabled_services_file => "/usr/local/etc/enabled_services", );
 
-# XXX: Namespaces should be kept in a single module?
-use constant UNIS_NS     => 'http://ogf.org/schema/network/topology/unis/20100528/';
-use constant PSCONFIG_NS => 'http://ogf.org/schema/network/topology/psconfig/20100716/';
-
-my %defaults = (
-    config_file => "/home/fernandes/sandbox/XXX",
-);
-
-my %known_services = (
-    "unis" => {
-        nodisplay   => 1,
-        type        => "unis",
-        short_name  => "UNIS",
-        name        => "Unified Network Information Service (UNIS)",
-        module      => "perfSONAR_PS::NPToolkit::Config::Handlers::Base",
+my @default_known_services = (
+    {
+        name                      => "hls",
+        description               => "Lookup Service",
+        service_name              => "lookup_service",
+        enabled                   => 0,
     },
-
-    "hls"  => {
-        nodisplay   => 1,
-        type        => "hls",
-        short_name  => "hLS",
-        name        => "Lookup Service",
-        url         => "http://www.internet2.edu/performance/pS-PS/index.html",
-        module      => "perfSONAR_PS::NPToolkit::Config::Handlers::Base",
+    {
+        name                      => "ls_registration_daemon",
+        description               => "LS Registration Daemon",
+        service_name              => "ls_registration_daemon",
+        enabled                   => 1,
     },
-
-    "ls_registration_daemon" => {
-        type        => "ls_registration_daemon",
-        short_name  => "LS Registration Daemon",
-        name        => "LS Registration Daemon",
-        url         => "http://www.internet2.edu/performance/pS-PS/index.html",
-        description => "Registers enabled daemons on this host with UNIS.",
-        module      => "perfSONAR_PS::NPToolkit::Config::Handlers::Base",
+    {
+        name                      => "snmp_ma",
+        description               => "SNMP MA",
+        enabled_services_variable => "snmpma_enabled",
+        service_name              => "snmp_ma",
+        enabled                   => 0,
     },
-
-    "snmp_ma" => {
-        nodisplay   => 1,
-        type        => "snmp_ma",
-        short_name  => "SNMP MA",
-        name        => "SNMP Measurement Archive",
-        url         => "http://www.internet2.edu/performance/pS-PS/index.html",
-        description => "Makes available SNMP statistics collected by an external program (e.g. Cacti).",
-        module      => "perfSONAR_PS::NPToolkit::Config::Handlers::Base",
+    {
+        name                      => "ndt",
+        description               => "NDT",
+        enabled_services_variable => "ndt_enabled",
+        service_name              => "ndt",
+        enabled                   => 0,
     },
-
-    "ndt" => {
-        nodisplay   => 1,
-        type        => "ndt",
-        short_name  => "NDT",
-        name        => "Network Diagnostic Tester (NDT)",
-        url         => "http://www.internet2.edu/performance/ndt/",
-        description => "Allows clients at other sites to run NDT tests to this host.",
-        module      => "perfSONAR_PS::NPToolkit::Config::Handlers::Base",
+    {
+        name                      => "npad",
+        description               => "NPAD",
+        enabled_services_variable => "npad_enabled",
+        service_name              => "npad",
+        enabled                   => 0,
     },
-
-    "npad" => {
-        nodisplay   => 1,
-        type        => "npad",
-        short_name  => "NPAD",
-        name        => "Network Path and Application Diagnosis (NPAD)",
-        url         => "http://www.psc.edu/networking/projects/pathdiag/",
-        description => "Allows clients at other sites to run NPAD tests to this host.",
-        module      => "perfSONAR_PS::NPToolkit::Config::Handlers::Base",
+    {
+        name                      => "pinger",
+        description               => "PingER",
+        enabled_services_variable => "pinger_enabled",
+        service_name              => "PingER",
+        enabled                   => 0,
     },
-    
-    "regular_testing" => {
-        nodisplay   => 1,
-        type        => "regular_testing",
-        short_name  => "Regular Testing",
-        name        => "Regular Testing",
-        url         => "http://www.internet2.edu/performance/pS-PS/index.html",
-        description => "Defines regular tests for PingER and pSB. Transparent to the user.",
-        module      => "perfSONAR_PS::NPToolkit::Config::Handlers::RegularTesting",
+    {
+        name                      => "owamp",
+        description               => "OWAMP",
+        enabled_services_variable => "owamp_enabled",
+        service_name              => "owampd",
+        enabled                   => 0,
     },
-    
-    "pinger" => {
-        type        => "pinger",
-        short_name  => "PingER",
-        name        => "PingER Measurement Archive and Regular Tester",
-        url         => "http://www.internet2.edu/performance/pS-PS/index.html",
-        description => "Enables hosts to perform scheduled ping tests." .
-                       "These tests will periodically ping configured hosts giving " .
-                       "administrators a view of the latency from their site over time.",
-        module      => "perfSONAR_PS::NPToolkit::Config::Handlers::Base",
+    {
+        name                      => "bwctl",
+        description               => "BWCTL",
+        enabled_services_variable => "bwctl_enabled",
+        service_name              => "bwctld",
+        enabled                   => 0,
     },
-
-    "owamp" => {
-        type        => "owamp",
-        short_name  => "OWAMP",
-        name        => "One-Way Ping Service (OWAMP)",
-        url         => "http://www.internet2.edu/performance/owamp/index.html",
-        description => "Allows clients at other sites to run One-Way Latency tests to this host",
-        module      => "perfSONAR_PS::NPToolkit::Config::Handlers::Base",
+    {
+        name                      => "ssh",
+        description               => "SSH",
+        enabled_services_variable => "ssh_enabled",
+        service_name              => "sshd",
+        enabled                   => 0,
     },
-
-    "bwctl" => {
-        type        => "bwctl",
-        short_name  => "BWCTL",
-        name        => "Bandwidth Test Controller (BWCTL)",
-        url         => "http://www.internet2.edu/performance/bwctl/index.html",
-        description => "Allows clients at other sites to run Throughput tests to this host",
-        module      => "perfSONAR_PS::NPToolkit::Config::Handlers::Base",
+    {
+        name                      => "http",
+        description               => "Web Services",
+        enabled_services_variable => "https_enabled",
+        service_name              => "httpd",
+        enabled                   => 1,
     },
-
-    "ssh" => {
-        nodisplay   => 1,
-        type        => "ssh",
-        short_name  => "SSH",
-        name        => "SSH Server",
-        description => "Allows administrators to remotely connect to this host using SSH",
-        module      => "perfSONAR_PS::NPToolkit::Config::Handlers::Base",
+    {
+        name                      => "perfsonarbuoy_ma",
+        description               => "perfSONAR-BUOY MA",
+        enabled_services_variable => "psb_ma_enabled",
+        service_name              => "perfsonarbuoy_ma",
+        enabled                   => 0,
     },
-
-    "perfsonarbuoy_ma" => {
-        type        => "perfsonarbuoy_ma",
-        short_name  => "perfSONAR-BUOY MA",
-        name        => "perfSONAR-BUOY Measurement Archive",
-        url         => "http://www.internet2.edu/performance/pS-PS/index.html",
-        description => "Makes available the data collected by the perfSONAR-BUOY Latency and Throughput tests.",
-        module      => "perfSONAR_PS::NPToolkit::Config::Handlers::Base",
+    {
+        name                      => "perfsonarbuoy_owamp",
+        description               => "perfSONAR-BUOY Collector (Latency)",
+        enabled_services_variable => "psb_owamp_enabled",
+        service_name              => [ "perfsonarbuoy_owp_collector", "perfsonarbuoy_owp_master" ],
+        enabled                   => 0,
     },
-
-    "perfsonarbuoy_owamp" => {
-        type        => "perfsonarbuoy_owamp",
-        short_name  => "perfSONAR-BUOY Latency Testing",
-        name        => "perfSONAR-BUOY Regular Testing (One-Way Latency)",
-        url         => "http://www.internet2.edu/performance/pS-PS/index.html",
-        description => "Enables hosts to perform scheduled one-way latency tests. " .
-                       "These tests will run periodically giving administrators a view " .
-                       "of the latency from their site over time.",
-        module      => "perfSONAR_PS::NPToolkit::Config::Handlers::Base",
+    {
+        name                      => "perfsonarbuoy_bwctl",
+        description               => "perfSONAR-BUOY Collector (Throughput)",
+        enabled_services_variable => "psb_enabled",
+        service_name              => [ "perfsonarbuoy_bw_collector", "perfsonarbuoy_bw_master" ],
+        enabled                   => 0,
     },
-
-    "perfsonarbuoy_bwctl" => {
-        type        => "perfsonarbuoy_bwctl",
-        short_name  => "perfSONAR-BUOY Throughput Testing",
-        name        => "perfSONAR-BUOY Regular Testing (Throughput)",
-        url         => "http://www.internet2.edu/performance/pS-PS/index.html",
-        description => "Enables hosts to perform scheduled throughput tests. " .
-                       "These tests will run periodically giving administrators a view " .
-                       " of the throughput to and from their site over time.",
-        module      => "perfSONAR_PS::NPToolkit::Config::Handlers::Base",
+    {
+        name                      => "ntp",
+        description               => "NTP",
+        enabled_services_variable => "ntpd_enabled",
+        service_name              => "ntpd",
+        enabled                   => 0,
     },
     
-    "ntp" => {
-        type        => "ntp",
-        short_name  => "NTP",
-        name        => "NTP Server",
-        url         => "http://www.ntp.org/",
-        module      => "perfSONAR_PS::NPToolkit::Config::Handlers::NTP",
+    {
+        name                      => "ganglia_gmond",
+        description               => "Host Monitoring Daemon (Ganglia)",
+        enabled_services_variable => "ganglia_gmond_enabled",
+        service_name              => "gmond",
+        enabled                   => 0,
     },
 
-    "ganglia_gmond" => {
-        type        => "ganglia_gmond",
-        short_name  => "Host Monitoring Daemon (Ganglia)",
-        name        => "Host Monitoring Daemon (Ganglia Monitoring Daemon)",
-        url         => "http://ganglia.info/",
-        description => "Monitors and announces a wide variety of host statistics. " .
-                       "Statistics are kept in-memory and are not persistently stored (see Host Monitoring Collector).",
-        module      => "perfSONAR_PS::NPToolkit::Config::Handlers::Base",
+    {
+        name                      => "ganglia_gmetad",
+        description               => "Host Monitoring Collector (Ganglia)",
+        enabled_services_variable => "ganglia_gmetad_enabled",
+        service_name              => [ "gmond", "gmetad" ],
+        enabled                   => 0,
     },
 
-    "ganglia_gmetad" => {
-        type        => "ganglia_gmetad",
-        short_name  => "Host Monitoring Collector (Ganglia)",
-        name        => "Host Monitoring Collector (Ganglia Meta Daemon)",
-        url         => "http://ganglia.info/",
-        description => "Receives the announcements of all Host Monitoring Daemons and stores " .
-                       "the statistics in local round-robin databases. " .
-                       "Currently, only one collector is supported per slice.",
-        module      => "perfSONAR_PS::NPToolkit::Config::Handlers::Base",
+    {
+        name                      => "ganglia_ma",
+        description               => "Ganglia MA",
+        enabled_services_variable => "ganglia_ma_enabled",
+        service_name              => "ganglia_ma",
+        enabled                   => 0,
     },
 
-    "ganglia_ma" => {
-        type        => "ganglia_ma",
-        short_name  => "Ganglia MA",
-        name        => "Ganglia Measurement Archive",
-        url         => "http://ganglia.info/",
-        description => "Exports the metrics collected by the Host Monitoring Collector using " .
-                       "the SNMP MA interface and NMWG schema.",
-        module      => "perfSONAR_PS::NPToolkit::Config::Handlers::Base",
+    {
+        name                      => "periscope",
+        description               => "Periscope",
+        enabled_services_variable => "periscope_enabled",
+        service_name              => "httpd",
+        enabled                   => 0,
     },
 
-    "periscope" => {
-        type        => "periscope",
-        short_name  => "Periscope",
-        name        => "Periscope Visualization Tool",
-        description => "GUI for visualizing topology and related I&M data.",
-        module      => "perfSONAR_PS::NPToolkit::Config::Handlers::Base",
+    {
+        name                      => "lamp_portal",
+        description               => "LAMP Portal",
+        enabled_services_variable => "lamp_portal_enabled",
+        service_name              => "httpd",
+        enabled                   => 0,
     },
-
-    "lamp_portal" => {
-        type        => "lamp_portal",
-        short_name  => "LAMP Portal",
-        name        => "LAMP I&M System Portal",
-        description => "Main portal for the LAMP I&M System (you're looking at it :).",
-        module      => "perfSONAR_PS::NPToolkit::Config::Handlers::Base",
+    {
+        name                      => "psconfig",
+        description               => "pSConfig",
+        enabled_services_variable => "psconfig_enabled",
+        service_name              => "psconfig",
+        enabled                   => 1,
     },
 );
 
-=head2 init({ unis_instance => 1, config_file => 0 })
+=head2 init({ enabled_services_file => 0 })
 
 Initializes the client. Returns 0 on success and -1 on failure. The
 enabled_services_file parameter can be specified to set which file the module
@@ -250,18 +189,14 @@ should use for reading/writing the configuration.
 
 sub init {
     my ( $self, @params ) = @_;
-    my $parameters = validate( @params, { unis_instance => 1, config_file => 0 } );
+    my $parameters = validate( @params, { enabled_services_file => 0, } );
 
     # Initialize the defaults
-    $self->{CONFIG_FILE} = $defaults{config_file};
+    $self->{ENABLED_SERVICES_FILE} = $defaults{enabled_services_file};
 
     # Override any
-    $self->{CONFIG_FILE} = $parameters->{config_file} if ( $parameters->{config_file} );
-    
-    # XXX: This could be determined through the hints file, especially 
-    #   as there might be the need for querying multiple UNIS instances 
-    $self->{UNIS_INSTANCE} = $parameters->{unis_instance};
-    
+    $self->{ENABLED_SERVICES_FILE} = $parameters->{enabled_services_file} if ( $parameters->{enabled_services_file} );
+
     my $res = $self->reset_state();
     if ( $res != 0 ) {
         return $res;
@@ -270,19 +205,40 @@ sub init {
     return 0;
 }
 
-=head2 save({ })
-    Saves the configuration to disk.
+=head2 save({ restart_services => 0 })
+    Saves the configuration to disk. The dependent services can be restarted by
+    specifying the "restart_services" parameter as 1. 
 =cut
 
 sub save {
     my ( $self, @params ) = @_;
-    my $parameters = validate( @params, { set_modified => 0, } );
-    
-    $self->{MODIFIED} = 1 if $parameters->{set_modified};
-    
-    my $res = $self->save_state();
+    my $parameters = validate( @params, { restart_services => 0, } );
+
+    my $enabled_services_file_output = $self->generate_enabled_services_file();
+
+    my $res;
+
+    $res = save_file( { file => $self->{ENABLED_SERVICES_FILE}, content => $enabled_services_file_output } );
     if ( $res == -1 ) {
-        return (-1, "Problem saving state to disk.");
+        return (-1, "Problem saving set of enabled services");
+    }
+
+    if ( $parameters->{restart_services} ) {
+        foreach my $key ( keys %{ $self->{SERVICES} } ) {
+            my $service = $self->{SERVICES}->{$key};
+            
+            # GFR: (LAMP) pSConfig is a standalone daemon.
+            # next if ($service->{name} eq "http"); # XXX it restarts the apache daemon while it is running.
+
+            if ( $service->{enabled} ) {
+                $self->{LOGGER}->debug( "(Re)starting " . $service->{name} );
+                restart_service( { name => $service->{name} } );
+            }
+            else {
+                $self->{LOGGER}->debug( "Stopping " . $service->{name} );
+                stop_service( { name => $service->{name} } );
+            }
+        }
     }
 
     return 0;
@@ -290,462 +246,138 @@ sub save {
 
 =head2 reset_state()
     Resets the state of the module to the state immediately after having run "init()".
-    Pulls the current configuration from UNIS if there's no local copy.
 =cut
 
 sub reset_state {
     my ( $self, @params ) = @_;
     my $parameters = validate( @params, {} );
 
-    my $must_pull = 1;
-    # The frozen representation should always exist, unless there was
-    # a problem with the parsing. In which case we should pull from UNIS anyways.
-    if ( -e $self->{CONFIG_FILE} and -e $self->{CONFIG_FILE} . ".frozen" ) {
-        $must_pull = 0;
-        eval {
-            my $fd = new IO::File( $self->{CONFIG_FILE} ) or die " Failed to open config file.";
-            
-            # First line should be the last pull date.
-            # We make sure it's a valid date, but keep it in string format.
-            my $last_pull = <$fd>;
-            chomp($last_pull);
-            timelocal( strptime( $last_pull, "%Y-%m-%d %H:%M:%S" ) ) or die " Failed to parse last pull date.";
-            
-            # Restore the frozen state (maybe with modifications)
-            if ( $self->restore_state() != 0 ) {
-                die "Failed to load last state.";
-            }
-            
-            ( $last_pull eq $self->{LAST_PULL_DATE} ) or die "Frozen state is unsynced with last pull data.";
-            
-            # Rest of file should be the topology data of all psconfig-enabled nodes.
-            # We leave it alone for now (we use it for catching "race" conditions on the topology data).
-            $fd->close();            
-        } or do {
-            my $msg = " Failed to load the configuration file: $@";
-            $self->{LOGGER}->error( $msg );
-            $must_pull = 1;
-        };
+    my %new_services_list = ();
+
+    foreach my $service ( @default_known_services ) {
+        my %service_desc = ();
+        $service_desc{name}                      = $service->{name};
+        $service_desc{description}               = $service->{description};
+        $service_desc{service_name}              = $service->{service_name};
+        $service_desc{enabled}                   = $service->{enabled};
+        $service_desc{enabled_services_variable} = $service->{enabled_services_variable};
+
+        $new_services_list{ $service->{name} } = \%service_desc;
     }
-    
-    # We pull the current configuratoin from UNIS if there was a problem
-    # reading the configuration file or if there was none (i.e. first run).
-    return $self->pull_configuration() if ( $must_pull == 1 );
-    
-    return 0;
-}
 
-=head2 pull_configuration ({ })
-    TODO:
-=cut
+    my ( $status, $res ) = read_enabled_services_file( { file => $self->{ENABLED_SERVICES_FILE} } );
+    if ( $status == 0 ) {
 
-# GFR: There's a bug on the current UNIS implementation for the TS side
-#   that xQuery's won't work, only xPath 1.0 queries.
-use constant CONFIG_NODE_XPATH => "
-//*[local-name()='node' and 
-    namespace-uri()='" . UNIS_NS . "' and 
-    ./*[local-name()='nodePropertiesBag' and 
-        namespace-uri()='" . UNIS_NS . "']/*[local-name()='nodeProperties' and 
-                                             namespace-uri()='" . PSCONFIG_NS . "']]
-";
+        # This just tells if it's enabled, we need to combine it with the stuff above
 
-use constant NODE_XPATH => "//*[local-name()='node' and namespace-uri()='" . UNIS_NS . "']";
+        foreach my $variable ( keys %$res ) {
+            foreach my $key ( keys %new_services_list ) {
+                my $service = $new_services_list{$key};
+                next unless ( $service->{enabled_services_variable} );
 
-sub pull_configuration {
-    my ( $self, @params ) = @_;
-    my $parameters = validate( @params, {} );
+                next unless ( $variable eq $service->{enabled_services_variable} );
 
-    # Query all nodes so we can also use the non-configurable nodes as test members.
-    # XXX: Note that we rely on UNIS for filtering to our domain based on policy. 
-    # XXX: We might not need to get everything from all nodes though.
-    my $unis = perfSONAR_PS::Client::Topology->new( $self->{UNIS_INSTANCE} );
-    my ( $status, $nodes ) = $unis->xQuery( NODE_XPATH );
-   
-    if ( $status != 0 ) {
-        my $msg = "Couldn't query UNIS: $nodes";
-        $self->{LOGGER}->error( $msg );
-        return -1;
-    }
-    
-    $self->{LAST_PULL_DATE} = strftime( "%Y-%m-%d %H:%M:%S", localtime );
-    
-    $status = $self->parse_configuration( { node_list_root => $nodes } );
-    if ( $status != 0 ) {
-         $self->{LOGGER}->error( "Couldn't parse pulled configuration." );
-         return -1;
-    }
-   
-    # Save what we just pulled to disk for book keeping
-    eval {
-        my $fd = new IO::File( "> ". $self->{CONFIG_FILE} ) or die " Failed to open config file.";
-        
-        # First line should be the last pull date (i.e. now).
-        print $fd $self->{LAST_PULL_DATE} . "\n";
-        
-        # Rest of file should be the topology data of all 
-        # psconfig-enabled nodes (i.e. what we just pulled).
-        # TODO: Filter out only the config nodes according to CONFIG_NODE_XPATH.
-        print $fd $nodes->toString();
-        
-        $fd->close();            
-    } or do {
-        my $msg = " Failed to save to the configuration file: $@";
-        $self->{LOGGER}->error( $msg );
-        # XXX: Maybe we don't have to fail here.
-        return -1;
-    };
-    
-    return 0;
-}
-
-sub push_configuration {
-    my ( $self, @params ) = @_;
-    my $parameters = validate( @params, {} );
-
-    return -1 unless $self->{LAST_MODIFIED_DATE};
-    
-    my $unis = perfSONAR_PS::Client::Topology->new( $self->{UNIS_INSTANCE} );
-    my ( $status, $res ) = $unis->xQuery( NODE_XPATH );
-   
-    if ( $status != 0 ) {
-        my $msg = "Couldn't query UNIS: $res";
-        $self->{LOGGER}->error( $msg );
-        return -1;
-    }
-    
-    my $new_topo = $res;
-    
-    # Make sure that the topology information (of config nodes) didn't change since
-    # our last pull. This is our current way to avoid getting new information (probably
-    # from other sources) overwritten because we modified a stale cache. (The user
-    # *will* lose his changes though.)
-    my $old_topo = '';
-    eval {
-        my $fd = new IO::File( $self->{CONFIG_FILE} ) or die " Failed to open config file.";
-        
-        my $last_pull = <$fd>;
-        
-        # Rest of the file should be the topology data we were operating on.
-        # Slurp it.
-        local( $/ );
-        $old_topo = <$fd>;
-        
-        $fd->close(); 
-    } or do {
-        my $msg = " Failed to load the configuration file: $@";
-        $self->{LOGGER}->error( $msg );
-        return -1;
-    };
-    
-    # TODO: String comparison is ugly here, since any difference
-    #   (even in whitespaces) between the XMLs will be considered.
-    #   Should check if XML::LibXML::Node::isSameNode works. 
-    unless ( $old_topo eq $new_topo->toString() ) {
-        # TODO: error msg
-        my $msg = " The topology data in UNIS changed... : $@";
-        $self->{LOGGER}->error( $msg );
-        
-        $self->{LAST_PULL_DATE} = strftime( "%Y-%m-%d %H:%M:%S", localtime );
-        $self->parse_configuration( { node_list_root => $new_topo } );
-        
-        return -1;
-    }
-    
-    # We change the encoded XML in place with the new configuration so that
-    # we don't mess with other node related data (because UNIS only supports
-    # replacing whole base topology elements for now). 
-    foreach my $node (  $new_topo->getChildrenByTagNameNS( UNIS_NS, "node" )->get_nodelist ) {
-        my $node_id = $node->getAttribute( "id" );
-        
-        my @node_properties = $node->getElementsByTagNameNS( PSCONFIG_NS, "nodeProperties" );
-        next unless scalar @node_properties > 0;
-        
-        my $psconfig_properties = $node_properties[0];
-        
-        # TODO: Policy
-        
-        my %services_configured = ();
-        foreach my $service ( $psconfig_properties->getChildrenByTagNameNS( PSCONFIG_NS, "service" )->get_nodelist ) {
-            my $type = $service->getAttribute( "type" );
-            
-            # Ignore this service if don't know about it.
-            next unless exists $known_services{ $type };
-            
-            # No service of this type on our current state means that the service
-            # had no configuration and was disabled (so we just remove it).
-            unless ( exists $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type } ) {
-                $psconfig_properties->removeChild( $service );
-                next;
-            }
-            
-            # Delegate actual configuration updates to the service-specific module.
-            $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type }->{CONFIGURATION}->update_encoded( { service => $service } );
-            
-            $services_configured{ $type } = 1;
-        }
-        
-        # Now we add the services that didn't exist on the node before.
-        foreach my $service_type ( keys %{ $self->{CONFIG_NODES}->{ $node_id }->{SERVICES} } ) {
-            next if exists $services_configured{ $service_type };
-            
-            $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $service_type }->{CONFIGURATION}->add_encoded( { node_properties => $psconfig_properties } );
-        }
-    }
-    
-    # UNIS expects the nodes to be inside a <topology> element, 
-    # so we just change the <nmwg:data> wrapper from the xQuery.
-    $new_topo->setNamespace( UNIS_NS, "unis", 1 );
-    
-    # This is not DOM compliant, but works. Otherwise we would have
-    # to create a separate topology element and add the children.
-    $new_topo->setNodeName( "unis:topology" );
-    
-    ( $status, $res ) = $unis->changeTopology( "replace", $new_topo );
-    
-    if ( $status != 0 ) {
-        my $msg = "Couldn't replace topology data on UNIS: $res";
-        $self->{LOGGER}->error( $msg );
-        return -1;
-    }
-    
-    # We pull the configuration back because UNIS normalizes the topology
-    # and moves things around. We need the exact textual representation.
-    $status = $self->pull_configuration();
-    
-    if ( $status != 0 ) {
-        # Now this is tricky. Theoretically we already pushed the new changes.
-        # We haven't updated the current state, and the last pull is stale.
-        # Likely the best thing to do at this point is to just erase all local data.
-        $self->clear_state();
-        
-        # TODO: not sure how're gonna disable the interface until we get the data.
-    }
-}
-
-=head2 parse_configuration ({ node_list_root => 1 })
-    TODO:
-=cut
-
-sub parse_configuration {
-    my ( $self, @params ) = @_;
-    my $parameters = validate( @params, { node_list_root => 1 } );
-    
-    my $node_list_root = $parameters->{node_list_root};
-    
-    return -1 unless ( ref $node_list_root eq "XML::LibXML::Element" );
-    
-    $self->{NODES} = {};
-    $self->{CONFIG_NODES} = {};
-    foreach my $node (  $node_list_root->getChildrenByTagNameNS( UNIS_NS, "node" )->get_nodelist ) {
-        my $node_id = $node->getAttribute( "id" );
-        
-        # For the name of the node we either use one of the node's <unis:name>
-        # elements if any, otherwise we use the node value of the id.
-        my @node_names = $node->getChildrenByTagNameNS( UNIS_NS, "name" );
-        if ( scalar @node_names > 0 ) {
-            foreach my $name ( @node_names ) {
-                my $name_val = extract( $name, 0 );
-                # Trim it
-                $name_val =~ s/^\s*//;
-                $name_val =~ s/\s*$//;
-                
-                # Make sure it's not empty
-                if ( $name_val ) {
-                    $self->{NODES}->{ $node_id }->{name} = $name_val;
-                    last;
+                if ( $res->{$variable} eq "disabled" ) {
+                    $service->{enabled} = 0;
+                }
+                elsif ( $res->{$variable} eq "enabled" ) {
+                    $service->{enabled} = 1;
                 }
             }
         }
-        
-        unless ( exists $self->{NODES}->{ $node_id }->{name} ) {
-            $self->{NODES}->{ $node_id }->{name} = idBaseLevel( $node_id );
-        }
-        
-        my @node_properties = $node->getElementsByTagNameNS( PSCONFIG_NS, "nodeProperties" );
-        
-        if ( scalar @node_properties > 0 ) {
-            unless ( scalar @node_properties == 1 ) { 
-                $self->{LOGGER}->error( " Invalid number of psconfig:nodeProperties for $node_id." );
-                next;
-            }
-            
-            $self->{CONFIG_NODES}->{ $node_id }->{name} = $self->{NODES}->{ $node_id }->{name};
-               
-            for my $service ( $node_properties[0]->getElementsByTagNameNS( PSCONFIG_NS, "service" ) ) {
-                my $service_type = $service->getAttribute( "type" );
-                
-                # For now we only care about services we know about.
-                next unless exists $known_services{ $service_type };
-                
-                my $service_ref = $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $service_type } = {};
-                $self->init_service( { type => $service_type, service => $service_ref } );
-                
-                $service_ref->{CONFIGURATION}->load_encoded( { service => $service } );
-            }
-        }
     }
-    
-    # Everytime we parse we're essentially resetting the state.
-    # MODIFIED says whether we modified the *frozen state*, and LAST_MODIFIED_DATE
-    # is the last time we saved a modified configuration (too confusing?).
-    $self->{MODIFIED} = 1;
-    $self->{LAST_MODIFIED_DATE} = 0;
-    $self->save_state( { keep_modified_date => 1 } );
-    
+
+    $self->{SERVICES} = \%new_services_list;
+
     return 0;
 }
 
-=head2 get_nodes ({})
-    Returns the list of nodes as a hash indexed by UNIS id. 
-    The hash values are hashes containing the node's properties.
+=head2 clear_state()
+    Resets the state of the module to the default values.
 =cut
 
-sub get_nodes {
+sub clear_state {
     my ( $self, @params ) = @_;
     my $parameters = validate( @params, {} );
 
-    return $self->{NODES};
+    my %new_services_list = ();
+
+    foreach my $service ( @default_known_services ) {
+        my %service_desc = ();
+        $service_desc{name}                      = $service->{name};
+        $service_desc{description}               = $service->{description};
+        $service_desc{service_name}              = $service->{service_name};
+        $service_desc{enabled}                   = $service->{enabled};
+        $service_desc{enabled_services_variable} = $service->{enabled_services_variable};
+
+        $new_services_list{ $service->{name} } = \%service_desc;
+    }
+    
+    $self->{SERVICES} = \%new_services_list;
+
+    return 0;
 }
 
-=head2 get_config_nodes ({})
-    Returns the list of nodes that can be configured (tagged by having the 
-    psconfig:nodeProperties element) as a hash indexed by UNIS id. The hash
-    values are hashes containing the node's properties (including a SERVICES hash).
-=cut
-
-sub get_config_nodes {
-    my ( $self, @params ) = @_;
-    my $parameters = validate( @params, {} );
-
-    return $self->{CONFIG_NODES};
-}
-
-=head2 get_services ({ node_id => 1 })
+=head2 get_services ({})
     Returns the list of services as a hash indexed by name. The hash values are
     hashes containing the service's properties.
 =cut
 
 sub get_services {
     my ( $self, @params ) = @_;
-    my $parameters = validate( @params, { node_id => 1, } );
-
-    return $self->{CONFIG_NODES}->{ $parameters->{node_id} }->{SERVICES};
-}
-
-=head2 get_known_services ({ })
-    Returns the list of known services as a hash indexed by name. 
-    The hash values are hashes containing the service's properties.
-=cut
-
-sub get_known_services {
-    my ( $self, @params ) = @_;
     my $parameters = validate( @params, {} );
 
-    return \%known_services;
+    return $self->{SERVICES};
 }
 
-=head2 lookup_service ({ node_id => 1, type => 1 })
+=head2 lookup_service ({ name => 1})
     Returns the properties of the specified service as a hash. Returns
     undefined if the service request does not exist.
 =cut
 
 sub lookup_service {
     my ( $self, @params ) = @_;
-    my $parameters = validate( @params, { node_id => 1, type => 1, } );
+    my $parameters = validate( @params, { name => 1, } );
 
-    my $node_id = $parameters->{node_id};
-    my $type    = $parameters->{type};
-    
-    return undef unless exists $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type };
-    
-    return $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type };
+    my $name = $parameters->{name};
+
+    return $self->{SERVICES}->{$name};
 }
 
-# TODO: The service ref should be directly an instance of the handler for this service.
-sub init_service {
-    my ( $self, @params ) = @_;
-    my $parameters = validate( @params, { type => 1, service => 1, } );
-    
-    my $service_type = $parameters->{type};
-    my $service      = $parameters->{service};
-            
-    # Append all we know about this service.
-    @$service{ keys %{ $known_services{ $service_type } } }  = values %{ $known_services{ $service_type } };
-            
-    # For further processing by the service-specific config module.
-    $service->{CONFIGURATION} = $service->{module}->new();
-    $service->{CONFIGURATION}->init( { service => $service } );
-    
-    return 0;
-}
-
-=head2 enable_service ({ node_id => 1, type => 1})
+=head2 enable_service ({ name => 1})
     Enables the specified service. Returns 0 if successful and -1 if the
     service does not exist.
 =cut
 
 sub enable_service {
     my ( $self, @params ) = @_;
-    my $parameters = validate( @params, { node_id => 1, type => 1, } );
+    my $parameters = validate( @params, { name => 1, } );
 
-    my $node_id = $parameters->{node_id};
-    my $type = $parameters->{type};
-    
-    unless ( exists $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type } ) {
-        # New service enabled. There's currently some redundancy between
-        # this module and the handler regarding enabling/disabling.
-        my $service_ref = $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type } = {};
-        $self->init_service( { type => $type, service => $service_ref } );
-        
-        $service_ref->{enabled} = 1;
-        
-        return 0;
-    }
-    
-    return 0 unless $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type }->{enabled};
-    
-    $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type }->{CONFIGURATION}->enable();
-    $self->{MODIFIED} = 1;
-    
+    my $name = $parameters->{name};
+
+    return -1 unless ( $self->{SERVICES}->{$name} );
+
+    $self->{SERVICES}->{$name}->{enabled} = 1;
+
     return 0;
 }
 
-=head2 disable_service ({ node_id => 1, name => 1})
+=head2 disable_service ({ name => 1})
     Disables the specified service. Returns 0 if successful and -1 if the
     service does not exist.
 =cut
 
 sub disable_service {
     my ( $self, @params ) = @_;
-    my $parameters = validate( @params, { node_id => 1, type => 1, } );
+    my $parameters = validate( @params, { name => 1, } );
 
-    my $node_id = $parameters->{node_id};
-    my $type = $parameters->{type};
-    
-    return 0 unless exists $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type };
-    return 0 unless $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type }->{enabled};
-    
-    $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type }->{CONFIGURATION}->disable();
-    
-    # We simply remove the service if there's no configuration associated.
-    if ( $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type }->{CONFIGURATION}->is_empty() ) {
-        delete $self->{CONFIG_NODES}->{ $node_id }->{SERVICES}->{ $type };
-    }
-    
-    $self->{MODIFIED} = 1;
-    
+    my $name = $parameters->{name};
+
+    return -1 unless ( $self->{SERVICES}->{$name} );
+
+    $self->{SERVICES}->{$name}->{enabled} = 0;
+
     return 0;
-}
-
-=head2 last_pull()
-    Returns when the site information was last pulled from UNIS.
-=cut
-
-sub last_pull {
-    my ( $self, @params ) = @_;
-    my $parameters = validate( @params, {} );
-
-    return $self->{LAST_PULL_DATE};
 }
 
 =head2 last_modified()
@@ -756,7 +388,71 @@ sub last_modified {
     my ( $self, @params ) = @_;
     my $parameters = validate( @params, {} );
 
-    return $self->{LAST_MODIFIED_DATE};
+    my ($mtime) = (stat ( $self->{ENABLED_SERVICES_FILE} ) )[9];
+
+    return $mtime;
+}
+
+=head2 read_enabled_services_file({ file => 1 })
+    Reads the specified "enabled_services.info" file. This file consists of
+    key/value pairs specifying whether services should be enabled or not.
+=cut
+
+sub read_enabled_services_file {
+    my $parameters = validate( @_, { file => 1, } );
+
+    # If the file doesn't exist, that means no interfaces are configured
+    unless ( open( FILE, $parameters->{file} ) ) {
+        my %retval = ();
+        return ( 0, \%retval );
+    }
+
+    my %enabled = ();
+
+    while ( <FILE> ) {
+        chomp;
+
+        if ( /=/ ) {
+            my ( $variable, $value ) = split( '=' );
+
+            # clear out whitespace
+            $value =~ s/^\s+//;
+            $value =~ s/\s+$//;
+
+            $enabled{$variable} = $value;
+        }
+    }
+
+    close( FILE );
+
+    return ( 0, \%enabled );
+}
+
+=head2 generate_enabled_services_file ({})
+    Generates a string representation of the contents of an
+    "enabled_services.info" file from the internal set of services.
+=cut
+
+sub generate_enabled_services_file {
+    my ( $self, @params ) = @_;
+    my $parameters = validate( @params, {} );
+
+    my $output = "";
+
+    foreach my $key ( sort keys %{ $self->{SERVICES} } ) {
+        my $service = $self->{SERVICES}->{$key};
+
+        next unless ( $service->{enabled_services_variable} );
+
+        if ( $service->{enabled} ) {
+            $output .= $service->{enabled_services_variable} . "=enabled\n";
+        }
+        else {
+            $output .= $service->{enabled_services_variable} . "=disabled\n";
+        }
+    }
+
+    return $output;
 }
 
 =head2 save_state()
@@ -766,72 +462,33 @@ sub last_modified {
 
 sub save_state {
     my ( $self, @params ) = @_;
-    my $parameters = validate( @params, { keep_modified_date => 0 } );
+    my $parameters = validate( @params, {} );
 
-    return 0 unless $self->{MODIFIED};
-    
-    unless ( exists $parameters->{keep_modified_date} and $parameters->{keep_modified_date} ) {
-        $self->{LAST_MODIFIED_DATE} = strftime( "%Y-%m-%d %H:%M:%S", localtime );
-    }
-    
     my %state = (
-        UNIS_INSTANCE       => $self->{UNIS_INSTANCE},
-        NODES               => $self->{NODES},
-        CONFIG_NODES        => $self->{CONFIG_NODES},
-        LAST_PULL_DATE      => $self->{LAST_PULL_DATE},
-        LAST_MODIFIED_DATE  => $self->{LAST_MODIFIED_DATE},
+        services              => $self->{SERVICES},
+        enabled_services_file => $self->{ENABLED_SERVICES_FILE},
     );
 
-    return -1 unless store( \%state, $self->{CONFIG_FILE} . ".frozen" );
+    my $str = freeze( \%state );
 
-    return 0;
+    return $str;
 }
 
-=head2 restore_state({ })
+=head2 restore_state({ state => \$state })
     Restores the modules state based on a string provided by the "save_state"
     function above.
 =cut
 
 sub restore_state {
     my ( $self, @params ) = @_;
-    my $parameters = validate( @params, {} );
+    my $parameters = validate( @params, { state => 1, } );
 
-    return -1 unless -f $self->{CONFIG_FILE} . ".frozen";
-    
-    my $state = retrieve( $self->{CONFIG_FILE} . ".frozen" );
-    
-    return -1 unless $state;
-    
-    $self->{UNIS_INSTANCE}      = $state->{UNIS_INSTANCE};
-    $self->{NODES}              = $state->{NODES};
-    $self->{CONFIG_NODES}       = $state->{CONFIG_NODES};
-    $self->{LAST_PULL_DATE}     = $state->{LAST_PULL_DATE};
-    $self->{LAST_MODIFIED_DATE} = $state->{LAST_MODIFIED_DATE};
-    
-    # MODIFIED says whether we modified the *frozen state*.
-    $self->{MODIFIED} = 0;
-    
-    return 0;
-}
+    my $state = thaw( $parameters->{state} );
 
-=head2 clear_state({ })
-    Removes all local state.
-=cut
+    $self->{SERVICES}              = $state->{services};
+    $self->{ENABLED_SERVICES_FILE} = $state->{enabled_services_file};
 
-sub clear_state {
-    my ( $self, @params ) = @_;
-    my $parameters = validate( @params, {} );
-
-    unlink ( $self->{CONFIG_FILE} );
-    unlink ( $self->{CONFIG_FILE} . ".frozen" );
-    
-    $self->{NODES}              = undef;
-    $self->{CONFIG_NODES}       = undef;
-    $self->{LAST_PULL_DATE}     = undef;
-    $self->{LAST_MODIFIED_DATE} = undef;
-    $self->{MODIFIED}           = undef;
-    
-    return 0;
+    return;
 }
 
 1;

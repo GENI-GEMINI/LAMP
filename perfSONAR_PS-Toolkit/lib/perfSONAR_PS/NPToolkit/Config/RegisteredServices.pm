@@ -7,7 +7,7 @@ our $VERSION = 3.1;
 
 =head1 NAME
 
-perfSONAR_PS::NPToolkit::Config::Services
+perfSONAR_PS::NPToolkit::Config::RegisteredServices
 
 =head1 DESCRIPTION
 

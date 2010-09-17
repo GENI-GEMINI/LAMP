@@ -1,6 +1,6 @@
 package perfSONAR_PS::Services::pSConfig::Handlers::Base;
 
-use fields 'CONF', 'UNIS_CLIENT', 'NODE_ID', 'PUSH';
+use fields 'LOGGER', 'CONF', 'UNIS_CLIENT', 'NODE_ID', 'PUSH';
 
 use strict;
 use warnings;
@@ -68,7 +68,7 @@ sub init {
     return 0;
 }
 
-=head2 apply($self, $node)
+=head2 apply($self, $node, $last_config, $changed, $failed_last)
 
 TODO:
 

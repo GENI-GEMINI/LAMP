@@ -27,7 +27,7 @@ use perfSONAR_PS::Client::gLS::Keywords;
 use perfSONAR_PS::Client::Parallel::gLS;
 use perfSONAR_PS::NPToolkit::Config::AdministrativeInfo;
 use perfSONAR_PS::NPToolkit::Config::RegularTesting;
-use perfSONAR_PS::NPToolkit::Config::Services;
+use perfSONAR_PS::NPToolkit::Config::pSConfig;
 use perfSONAR_PS::NPToolkit::Config::ExternalAddress;
 use perfSONAR_PS::Common qw(find findvalue extract genuid);
 
@@ -96,8 +96,8 @@ else {
     save_state();
 }
 
-my $services_conf = perfSONAR_PS::NPToolkit::Config::Services->new();
-$services_conf->init( { unis_instance => $conf{unis_instance} } );
+my $psconf = perfSONAR_PS::NPToolkit::Config::$psconf->new();
+$psconf->init( { unis_instance => $conf{unis_instance} } );
 
 if ($testing_conf->last_modified() > $initial_state_time) {
 	reset_state();
@@ -156,14 +156,14 @@ sub save_config {
     my ( $node_id ) = $cgi->param("args");
     
     if ( defined $node_id and $node_id ) {
-        $services_conf->enable_service( { node_id => $node_id, type => "regular_testing" } );
+        $psconf->enable_service( { node_id => $node_id, type => "regular_testing" } );
         
-        my $regtest = $services_conf->lookup_service( { node_id => $node_id, type => "regular_testing" } );
+        my $regtest = $psconf->lookup_service( { node_id => $node_id, type => "regular_testing" } );
         
         $regtest->{CONFIGURATION}->set_tests( { tests => $testing_conf->{TESTS} } );
         $regtest->{CONFIGURATION}->set_local_port_ranges( { local_port_ranges => $testing_conf->{LOCAL_PORT_RANGES} } );
         
-        $services_conf->save( { set_modified => 1 } );
+        $psconf->save( { set_modified => 1 } );
     }
     
     reset_state();
@@ -197,7 +197,7 @@ sub reset_state {
     my ( $node_id ) = $cgi->param("args");
     my $service = undef;
     if ( defined $node_id and $node_id ) {
-        $service = $services_conf->lookup_service( { node_id => $node_id, type => "regular_testing" } );
+        $service = $psconf->lookup_service( { node_id => $node_id, type => "regular_testing" } );
     }
     
     $testing_conf = perfSONAR_PS::NPToolkit::Config::RegularTesting->new();
@@ -242,7 +242,7 @@ sub fill_variables {
     fill_variables_status( $vars );
     
     $vars->{nodes} = {};
-    my $nodes = $services_conf->get_config_nodes();
+    my $nodes = $psconf->get_config_nodes();
     foreach my $node_id ( keys %{ $nodes } ) {
         $vars->{nodes}->{$node_id}->{name} = $nodes->{$node_id}->{name};
     }
@@ -304,22 +304,22 @@ sub fill_variables_status {
     if ( $node_id ) {
         my $service_info;
 
-        $service_info = $services_conf->lookup_service( { node_id => $node_id, type => "pinger" } );
+        $service_info = $psconf->lookup_service( { node_id => $node_id, type => "pinger" } );
         if ( $service_info and $service_info->{enabled} ) {
             $pinger_enabled = 1;
         }
 
-        $service_info = $services_conf->lookup_service( { node_id => $node_id, type => "perfsonarbuoy_bwctl" } );
+        $service_info = $psconf->lookup_service( { node_id => $node_id, type => "perfsonarbuoy_bwctl" } );
         if ( $service_info and $service_info->{enabled} ) {
             $psb_bwctl_enabled = 1;
         }
 
-        $service_info = $services_conf->lookup_service( { node_id => $node_id, type => "perfsonarbuoy_owamp" } );
+        $service_info = $psconf->lookup_service( { node_id => $node_id, type => "perfsonarbuoy_owamp" } );
         if ( $service_info and $service_info->{enabled} ) {
             $psb_owamp_enabled = 1;
         }
 
-        $service_info = $services_conf->lookup_service( { node_id => $node_id, type => "perfsonarbuoy_ma" } );
+        $service_info = $psconf->lookup_service( { node_id => $node_id, type => "perfsonarbuoy_ma" } );
         if ( $service_info and $service_info->{enabled} ) {
             $psb_ma_enabled = 1;
         }
@@ -441,7 +441,7 @@ sub fill_variables_hosts {
     my $test = $res;
     
     my @hosts = ();
-    my $nodes = $services_conf->get_nodes();
+    my $nodes = $psconf->get_nodes();
     foreach my $node_id ( keys %{ $nodes } ) {
         my $node = $nodes->{ $node_id };
         my %service_info = ();
@@ -451,7 +451,7 @@ sub fill_variables_hosts {
     }
 
     $vars->{hosts}      = \@hosts;
-    $vars->{check_time} = timelocal( strptime( $services_conf->last_pull(), "%Y-%m-%d %H:%M:%S" ) );
+    $vars->{check_time} = timelocal( strptime( $psconf->last_pull(), "%Y-%m-%d %H:%M:%S" ) );
 
     return 0;
 }
@@ -868,7 +868,7 @@ sub lookup_servers {
     my $test = $res;
     
     my @hosts = ();
-    foreach my $node ( $services_conf->get_nodes() ) {
+    foreach my $node ( $psconf->get_nodes() ) {
         my %service_info = ();
         $service_info{"name"}        = $node->{name};
         $service_info{"description"} = "";

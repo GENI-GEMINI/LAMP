@@ -19,7 +19,7 @@ my $basedir = "$RealBin/";
 
 use lib "$RealBin/../../../../lib";
 
-use perfSONAR_PS::NPToolkit::Config::Services;
+use perfSONAR_PS::NPToolkit::Config::pSConfig;
 
 my $config_file = $basedir . '/etc/web_admin.conf';
 my $conf_obj = Config::General->new( -ConfigFile => $config_file );
@@ -89,19 +89,19 @@ sub main {
 sub fill_variables {
     my $vars = shift;
 
-    my $services_conf = perfSONAR_PS::NPToolkit::Config::Services->new();
-    my $res = $services_conf->init( { unis_instance => $conf{unis_instance} } );
+    my $psconf = perfSONAR_PS::NPToolkit::Config::pSConfig->new();
+    my $res = $psconf->init( { unis_instance => $conf{unis_instance} } );
     if ( $res != 0 ) {
         $vars->{error_message}  = "Couldn't initialize Services Configuration";
         return -1;
     } else {
-        $vars->{nodes} = $services_conf->get_config_nodes();
+        $vars->{nodes} = $psconf->get_config_nodes();
         unless ( keys %{ $vars->{nodes} } ) {
             $vars->{error_message}  = "There are no nodes to configure.";
             return -1;
         }
         
-	$vars->{services} = $services_conf->get_known_services();
+	$vars->{services} = $psconf->get_known_services();
     }
 
     return 0;
@@ -129,8 +129,8 @@ sub save_config {
     
     my ($status, $res);
 
-    my $services_conf = perfSONAR_PS::NPToolkit::Config::Services->new();
-    $res = $services_conf->init( { unis_instance => $conf{unis_instance} } );
+    my $psconf = perfSONAR_PS::NPToolkit::Config::pSConfig->new();
+    $res = $psconf->init( { unis_instance => $conf{unis_instance} } );
     if ( $res != 0 ) {
         my %resp = ( error => "Couldn't initialize Services Configuration" );
 	print "Content-type: text/json\n\n";
@@ -140,13 +140,13 @@ sub save_config {
 
     foreach my $name (keys %$params) {
 	if ($params->{$name} eq "off") {
-            $services_conf->disable_service( { node_id => $node, type => $name } );
+            $psconf->disable_service( { node_id => $node, type => $name } );
 	} else {
-            $services_conf->enable_service( { node_id => $node, type => $name } );
+            $psconf->enable_service( { node_id => $node, type => $name } );
 	}
     }
 
-    ($status, $res) = $services_conf->save( {} );
+    ($status, $res) = $psconf->save( {} );
     if ($status != 0) {
         my %resp = ( error => "Couldn't save Services Configuration: $res" );
 	print "Content-type: text/json\n\n";
@@ -162,17 +162,17 @@ sub save_config {
 sub reset_config {
     my $node = shift;
     
-    my $services_conf = perfSONAR_PS::NPToolkit::Config::Services->new();
-    my $res = $services_conf->init( { unis_instance => $conf{unis_instance} } );
+    my $psconf = perfSONAR_PS::NPToolkit::Config::pSConfig->new();
+    my $res = $psconf->init( { unis_instance => $conf{unis_instance} } );
     if ( $res != 0 ) {
         my %resp = ( error => "Couldn't initialize Services Configuration" );
 	print "Content-type: text/json\n\n";
 	print encode_json(\%resp);
     }
 
-    my $services = $services_conf->get_services( { node_id => $node } );
+    my $services = $psconf->get_services( { node_id => $node } );
     my %service_list = ();
-    foreach my $name ( keys %{ $services_conf->get_known_services() } ) {
+    foreach my $name ( keys %{ $psconf->get_known_services() } ) {
         # Disabled is default.
         $service_list{ $name } = 0;
 	$service_list{ $name } = $services->{ $name }->{enabled} if exists $services->{ $name };

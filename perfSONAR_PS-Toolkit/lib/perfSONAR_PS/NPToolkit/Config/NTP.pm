@@ -32,11 +32,11 @@ use Storable qw(store retrieve freeze thaw dclone);
 use perfSONAR_PS::Utils::Config::NTP qw( ntp_conf_read_file );
 use perfSONAR_PS::NPToolkit::ConfigManager::Utils qw( save_file restart_service );
 
-# These are the defaults for the current NPToolkit
+# These are the defaults for LAMP
 my %defaults = (
     ntp_conf          => "/etc/ntp.conf",
-    known_servers     => "/opt/perfsonar_ps/toolkit/etc/ntp_known_servers",
-    ntp_conf_template => "/opt/perfsonar_ps/toolkit/templates/config/ntp_conf.tmpl",
+    known_servers     => "/usr/local/etc/ntp_known_servers",
+    ntp_conf_template => "/usr/local/etc/ntp_conf.tmpl",
 );
 
 =head2 init({ ntp_conf_template => 0, known_servers => 0, ntp_conf => 0 })
@@ -56,6 +56,7 @@ sub init {
             ntp_conf_template => 0,
             known_servers     => 0,
             ntp_conf          => 0,
+            ntp_servers       => 0,
         }
     );
 
@@ -68,12 +69,14 @@ sub init {
     $self->{NTP_CONF_TEMPLATE_FILE} = $parameters->{ntp_conf_template} if ( $parameters->{ntp_conf_template} );
     $self->{NTP_CONF_FILE}          = $parameters->{ntp_conf}          if ( $parameters->{ntp_conf} );
     $self->{KNOWN_SERVERS_FILE}     = $parameters->{known_servers}     if ( $parameters->{known_servers} );
-
+    
     my $res = $self->reset_state();
     if ( $res != 0 ) {
         return $res;
     }
-
+    
+    $self->{NTP_SERVERS} = dclone( $parameters->{ntp_servers} ) if $parameters->{ntp_servers};
+    
     return 0;
 }
 
@@ -84,23 +87,28 @@ sub init {
 
 sub save {
     my ( $self, @params ) = @_;
-    my $parameters = validate( @params, { restart_services => 0, } );
-
-    my $ntp_conf_output          = $self->generate_ntp_conf();
+    my $parameters = validate( @params, { save_ntp_conf => 0, restart_services => 0, } );
+    
+    my $res;
+    
+    # The web-side of pSConfig doesn't save the ntp_conf file, 
+    # but saves the known server list (which is local, not node specific).
+    if ( $parameters->{save_ntp_conf} ) {
+        my $ntp_conf_output          = $self->generate_ntp_conf();
+        
+        return (-1, "Problem generating NTP configuration") unless ( $ntp_conf_output );
+        
+        $res = save_file( { file => $self->{NTP_CONF_FILE}, content => $ntp_conf_output } );
+        if ( $res == -1 ) {
+            $self->{LOGGER}->error( "File save failed: " . $self->{NTP_CONF_FILE} );
+            return (-1, "Problem saving NTP configuration");
+        }
+    }
+    
     my $ntp_known_servers_output = $self->generate_ntp_server_list();
 
-    my $res;
-
-    #return (-1, "Problem generating NTP configuration") unless ( $ntp_conf_output );
     return (-1, "Problem generating list of known servers") unless ( $ntp_known_servers_output );
     
-    # GFR: Disabled for LAMP
-    #$res = save_file( { file => $self->{NTP_CONF_FILE}, content => $ntp_conf_output } );
-    #if ( $res == -1 ) {
-    #    $self->{LOGGER}->error( "File save failed: " . $self->{KNOWN_SERVERS_FILE} );
-    #    return (-1, "Problem saving NTP configuration");
-    #}
-
     $res = save_file( { file => $self->{KNOWN_SERVERS_FILE}, content => $ntp_known_servers_output } );
     if ( $res == -1 ) {
         $self->{LOGGER}->error( "File save failed: " . $self->{KNOWN_SERVERS_FILE} );
@@ -318,9 +326,6 @@ sub reset_state {
 sub generate_ntp_conf {
     my ( $self, @params ) = @_;
     my $parameters = validate( @params, {} );
-    
-    # GFR: Disabled for LAMP
-    return;
     
     my %vars         = ();
     my @vars_servers = ();

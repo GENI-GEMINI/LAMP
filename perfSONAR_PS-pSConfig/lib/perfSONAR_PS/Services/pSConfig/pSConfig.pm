@@ -2,7 +2,7 @@ package perfSONAR_PS::Services::pSConfig::pSConfig;
 
 use base 'perfSONAR_PS::Services::Base';
 
-use fields 'LOGGER', 'UNIS_CLIENT', 'NODE_ID', 'PUSH', 'QUERY', 'HANDLERS', 'LAST_CONFIG_FILE';
+use fields 'LOGGER', 'UNIS_CLIENT', 'NODE_ID', 'PUSH', 'QUERY', 'HANDLERS', 'FAILED_LAST', 'FIRST_RUN', 'LAST_CONFIG_FILE';
 
 use strict;
 use warnings;
@@ -22,6 +22,7 @@ TODO:
 use IO::File;
 use Module::Load;
 use Log::Log4perl qw(get_logger);
+
 use perfSONAR_PS::Common qw(duplicateHash parseToDOM);
 use perfSONAR_PS::Client::Topology;
 use perfSONAR_PS::Topology::ID qw(idConstruct idIsFQ);
@@ -71,7 +72,7 @@ sub init {
     }
     
     if ( exists $self->{CONF}->{"psconfig"}->{"node_id"} and $self->{CONF}->{"psconfig"}->{"node_id"} ) {
-        unless( idIsFQ( $self->{NODE_ID} = $self->{CONF}->{"psconfig"}->{"node_id"} ) ) {
+        unless( idIsFQ( $self->{CONF}->{"psconfig"}->{"node_id"} ) ) {
             $self->{LOGGER}->error("node_id must be fully qualified.");
             return -1;
         }
@@ -80,6 +81,13 @@ sub init {
     elsif ( exists $self->{CONF}->{"psconfig"}->{"domain"} and $self->{CONF}->{"psconfig"}->{"domain"} and
                 exists $self->{CONF}->{"psconfig"}->{"node"} and $self->{CONF}->{"psconfig"}->{"node"} ) {
         $self->{NODE_ID} = idConstruct( "domain", $self->{CONF}->{"psconfig"}->{"domain"}, "node", $self->{CONF}->{"psconfig"}->{"node"}, q{} );
+    }
+    elsif ( exists $self->{CONF}->{"node_id"} and $self->{CONF}->{"node_id"} ) {
+        unless( idIsFQ( $self->{CONF}->{"node_id"} ) ) {
+            $self->{LOGGER}->error("node_id must be fully qualified.");
+            return -1;
+        }
+        $self->{NODE_ID} = $self->{CONF}->{"node_id"};
     }
     else {
         $self->{LOGGER}->error("Couldn't determine node id.");
@@ -134,6 +142,8 @@ sub init {
         }
         
         push @loaded_handlers, $loaded_handler;
+        
+        $self->{FAILED_LAST}->{$loaded_handler} = 0;
     }
     
     $self->{HANDLERS} = \@loaded_handlers;
@@ -154,6 +164,8 @@ sub init {
         print $fd '<init/>';
         close $fd;
     }
+    
+    $self->{FIRST_RUN} = 1;
     
     return 0;
 }
@@ -182,6 +194,7 @@ sub run {
         $fd->close;
         
         $fd = new IO::File( "> $self->{LAST_CONFIG_FILE}" ) or die " Failed to open last config file ";
+        $node->setNamespace( PSCONFIG_NS, "unis", 0 );
         print $fd $node->toString;
         $fd->close;
     } or do {
@@ -200,11 +213,21 @@ sub run {
     
     $last_config = $last_config->documentElement();
     
+    my $node_clone = $node->cloneNode( 1 ); 
+    
+    my $push = 0;
     foreach my $handler ( @{ $self->{HANDLERS} } ) {
-        $changed = ( $handler->apply( $node, $last_config, $changed ) or $changed );
+        $res = $handler->apply( $node_clone, $last_config, $changed, $self->{FIRST_RUN}, $self->{FAILED_LAST}->{$handler} );
+        
+        if ( $res < 0 ) {
+            $self->{FAILED_LAST}->{$handler} = 1
+        } 
+        else {
+           $push = ( $res or $push );
+        }
     }
 
-    if ( $self->{CONF}->{"psconfig"}->{"enable_push"} and not $res->toString eq $node->toString ) {
+    if ( $self->{CONF}->{"psconfig"}->{"enable_push"} and $push and not $node_clone->toString eq $node->toString ) {
         # TODO: double check that the node information on UNIS hasn't
         #   changed while we were processing it (duplicate and compare).
         #   Maybe we also need to make sure the modules didn't do something
@@ -217,7 +240,9 @@ sub run {
             return ( -1, $msg );
         }
     }
-
+    
+    $self->{FIRST_RUN} = 0;
+    
     return (0, q{});
 }
 

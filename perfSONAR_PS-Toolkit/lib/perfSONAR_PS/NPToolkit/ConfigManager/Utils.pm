@@ -7,6 +7,7 @@ our $VERSION = 3.1;
 
 use Params::Validate qw(:all);
 use Log::Log4perl qw(get_logger);
+use Module::Load;
 
 =head1 NAME
 
@@ -18,18 +19,16 @@ A module that exports functions for saving files and restarting services. In
 the future, this may talk with a configuration daemon, but for now, it provides
 a uniform API that all the models use.
 
+GFR: (LAMP) Changed to do what the ConfigDaemon is doing so we don't incur the
+  XMLRPC usage penalty. May be reverted if we ever do direct remote configuration.
+
 =head1 API
 
 =cut
 
-use perfSONAR_PS::NPToolkit::Config::Services;
-use perfSONAR_PS::NPToolkit::ConfigManager::ConfigClient;
-
 use base 'Exporter';
 
 our @EXPORT_OK = qw( save_file restart_service stop_service start_service );
-
-my $default_url = "http://localhost:9000/";
 
 =head2 save_file({ file => 1, content => 1 })
 
@@ -49,18 +48,19 @@ sub save_file {
     my $file    = $parameters->{file};
     my $content = $parameters->{content};
 
-    my ($status, $res);
-
-    my $client = perfSONAR_PS::NPToolkit::ConfigManager::ConfigClient->new();
-    ($status, $res) = $client->init({ url => $default_url });
-    if ($status != 0) {
+    
+    my $status;
+    
+    eval {
+        $status = writeFile( { filename => $file, contents => $content } );
+        1;
+    } or do {
+        my $logger = get_logger( "perfSONAR_PS::NPToolkit::ConfigManager::Utils" );
+        $logger->error( "Problem writing file $file: $@" );
         return -1;
-    }
-
-    ($status, $res) = $client->saveFile({ filename => $file, content => $content });
-    if ($status != 0) {
-        return -1;
-    }
+    };
+    
+    return -1 if $status;
 
     return 0;
 }
@@ -77,25 +77,25 @@ sub restart_service {
     my $parameters = validate(
         @_,
         {
-            name => 0,
+            name => 1,
         }
     );
 
     my $name    = $parameters->{name};
-
-    my ($status, $res);
-
-    my $client = perfSONAR_PS::NPToolkit::ConfigManager::ConfigClient->new();
-    ($status, $res) = $client->init({ url => $default_url });
-    if ($status != 0) {
+    
+    my $status;
+    
+    eval {
+        $status = restartService({ name => $name, ignoreEnabled => 0 });
+        1;
+    } or do {
+        my $logger = get_logger( "perfSONAR_PS::NPToolkit::ConfigManager::Utils" );
+        $logger->error( "Problem restarting service $name: $@" );
         return -1;
-    }
-
-    ($status, $res) = $client->restartService({ name => $name, ignoreEnabled => 0 });
-    if ($status != 0) {
-        return -1;
-    }
-
+    };
+    
+    return -1 if $status;
+    
     return 0;
 }
 
@@ -111,24 +111,24 @@ sub stop_service {
     my $parameters = validate(
         @_,
         {
-            name => 0,
+            name => 1,
         }
     );
 
     my $name    = $parameters->{name};
 
-    my ($status, $res);
-
-    my $client = perfSONAR_PS::NPToolkit::ConfigManager::ConfigClient->new();
-    ($status, $res) = $client->init({ url => $default_url });
-    if ($status != 0) {
+    my $status;
+    
+    eval {
+        $status = stopService({ name => $name, ignoreEnabled => 0 });
+        1;
+    } or do {
+        my $logger = get_logger( "perfSONAR_PS::NPToolkit::ConfigManager::Utils" );
+        $logger->error( "Problem stopping service $name: $@" );
         return -1;
-    }
-
-    ($status, $res) = $client->stopService({ name => $name, ignoreEnabled => 0 });
-    if ($status != 0) {
-        return -1;
-    }
+    };
+    
+    return -1 if $status;
 
     return 0;
 }
@@ -145,26 +145,225 @@ sub start_service {
     my $parameters = validate(
         @_,
         {
-            name => 0,
+            name => 1,
         }
     );
 
     my $name    = $parameters->{name};
 
-    my ($status, $res);
-
-    my $client = perfSONAR_PS::NPToolkit::ConfigManager::ConfigClient->new();
-    ($status, $res) = $client->init({ url => $default_url });
-    if ($status != 0) {
+    my $status;
+    
+    eval {
+        $status = startService( { name => $name, ignoreEnabled => 0 } );
+        1;
+    } or do {
+        my $logger = get_logger( "perfSONAR_PS::NPToolkit::ConfigManager::Utils" );
+        $logger->error( "Problem starting service $name: $@" );
         return -1;
-    }
-
-    ($status, $res) = $client->startService({ name => $name, ignoreEnabled => 0 });
-    if ($status != 0) {
-        return -1;
-    }
+    };
+    
+    return -1 if $status;
 
     return 0;
+}
+
+##########################################################################
+# From perfSONAR_PS::NPToolkit::ConfigManager::ConfigDaemon
+##########################################################################
+
+=head2 writeFile({ filename => 1, contents => 1 })
+    Handles the given configuration daemon request.
+=cut
+
+sub writeFile {
+    my ( @params ) = @_;
+    my $parameters = validate(
+        @params,
+        {
+            filename   => 1,
+            contents   => 1,
+        }); 
+
+    my $filename = $parameters->{filename};
+    my $contents = $parameters->{contents};
+    
+    open( FILE, ">", $filename ) or die("Couldn't write $filename");
+    print FILE $contents;
+    close( FILE );
+
+    return "";
+}
+
+=head2 restartService({ name => 1 })
+    Restarts the specified service.
+=cut
+sub restartService {
+    my ( @params ) = @_;
+    my $parameters = validate(
+        @params,
+        {
+            name => 1,
+            ignoreEnabled => 1,
+        }); 
+
+    my $name          = $parameters->{name};
+    my $ignoreEnabled = $parameters->{ignoreEnabled};
+
+    my ($status, $res);
+    
+    # TODO: horrible way to avoid circular reference
+    load perfSONAR_PS::NPToolkit::Config::Services; 
+    my $services_conf = perfSONAR_PS::NPToolkit::Config::Services->new();
+    $services_conf->init();
+
+    my $service_info = $services_conf->lookup_service( { name => $name } );
+    unless ($service_info) {
+        my $msg = "Invalid service: $name";
+        my $logger = get_logger( "perfSONAR_PS::NPToolkit::ConfigManager::Utils" );
+        $logger->error($msg);
+        die($msg);
+    }
+
+    unless ($ignoreEnabled or $service_info->{enabled}) {
+        return "";
+    }
+
+    my @service_names = ();
+
+    if ( ref $service_info->{service_name} eq "ARRAY" ) {
+        foreach my $service_name ( @{ $service_info->{service_name} } ) {
+            push @service_names, $service_name;
+        }
+    }
+    else {
+        push @service_names, $service_info->{service_name};
+    }
+    
+    $status = 0;
+    foreach my $service_name ( @service_names ) {
+        # XXX: hack so that during a save, it doesn't stop apache in the middle.
+        # Really needs a better way of doing it.
+        my $restart_cmd = "restart";
+        $restart_cmd = "reload" if ($service_name =~ /httpd/);
+
+        my $cmd = "sudo /etc/init.d/" . $service_name . " " .$restart_cmd ." &> /dev/null";
+        my $logger = get_logger( "perfSONAR_PS::NPToolkit::ConfigManager::Utils" );
+        $logger->debug($cmd);
+        system( $cmd ) and $logger->error( "Problem restarting service $service_name: $?" );
+    }
+
+    return "";
+}
+
+=head2 startService({ name => 1 })
+    Starts the specified service.
+=cut
+sub startService {
+    my ( @params ) = @_;
+    my $parameters = validate(
+        @params,
+        {
+            name => 1,
+            ignoreEnabled => 1,
+        }); 
+
+    my $name          = $parameters->{name};
+    my $ignoreEnabled = $parameters->{ignoreEnabled};
+
+    my ($status, $res);
+    
+    # TODO: horrible way to avoid circular reference
+    load perfSONAR_PS::NPToolkit::Config::Services;
+    my $services_conf = perfSONAR_PS::NPToolkit::Config::Services->new();
+    $services_conf->init();
+
+    my $service_info = $services_conf->lookup_service( { name => $name } );
+    unless ($service_info) {
+        my $msg = "Invalid service: $name";
+        my $logger = get_logger( "perfSONAR_PS::NPToolkit::ConfigManager::Utils" );
+        $logger->error($msg);
+        die($msg);
+    }
+
+    unless ($ignoreEnabled or $service_info->{enabled}) {
+        return "";
+    }
+
+    my @service_names = ();
+
+    if ( ref $service_info->{service_name} eq "ARRAY" ) {
+        foreach my $service_name ( @{ $service_info->{service_name} } ) {
+            push @service_names, $service_name;
+        }
+    }
+    else {
+        push @service_names, $service_info->{service_name};
+    }
+    
+    foreach my $service_name ( @service_names ) {
+        my $cmd = "sudo /etc/init.d/" . $service_name . " start &> /dev/null";
+        my $logger = get_logger( "perfSONAR_PS::NPToolkit::ConfigManager::Utils" );
+        $logger->debug($cmd);
+        system( $cmd ) and $logger->error( "Problem starting service $service_name: $?" );
+    }
+
+    return "";
+}
+
+=head2 stopService({ name => 1 })
+    Stops the specified service.
+=cut
+sub stopService {
+    my ( @params ) = @_;
+    my $parameters = validate(
+        @params,
+        {
+            name => 1,
+            ignoreEnabled => 1,
+        }); 
+
+    my $name          = $parameters->{name};
+    my $ignoreEnabled = $parameters->{ignoreEnabled};
+
+    my ($status, $res);
+
+    # TODO: horrible way to avoid circular reference
+    load perfSONAR_PS::NPToolkit::Config::Services;
+    my $services_conf = perfSONAR_PS::NPToolkit::Config::Services->new();
+    $services_conf->init();
+
+    my $service_info = $services_conf->lookup_service( { name => $name } );
+    unless ($service_info) {
+        my $msg = "Invalid service: $name";
+        my $logger = get_logger( "perfSONAR_PS::NPToolkit::ConfigManager::Utils" );
+        $logger->error($msg);
+        die($msg);
+    }
+
+#    stop no matter what since stopping a non-enabled service doesn't matter
+#    unless ($ignoreEnabled or $service_info->{enabled}) {
+#        return "";
+#    }
+
+    my @service_names = ();
+
+    if ( ref $service_info->{service_name} eq "ARRAY" ) {
+        foreach my $service_name ( @{ $service_info->{service_name} } ) {
+            push @service_names, $service_name;
+        }
+    }
+    else {
+        push @service_names, $service_info->{service_name};
+    }
+    
+    foreach my $service_name ( @service_names ) {
+        my $cmd = "sudo /etc/init.d/" . $service_name . " stop &> /dev/null";
+        my $logger = get_logger( "perfSONAR_PS::NPToolkit::ConfigManager::Utils" );
+        $logger->debug($cmd);
+        system( $cmd ) and $logger->error( "Problem stopping service $service_name: $?" );
+    }
+
+    return "";
 }
 
 1;

@@ -28,6 +28,7 @@ use base 'perfSONAR_PS::NPToolkit::Config::Base';
 
 use fields 'LOCAL_ADDRS', 'LOCAL_PORT_RANGES', 'TESTS', 'PERFSONARBUOY_CONF_TEMPLATE', 'PERFSONARBUOY_CONF_FILE', 'PINGER_LANDMARKS_CONF_FILE', 'OWMESH_PARAMETERS';
 
+use Socket;
 use POSIX;
 use File::Basename qw(dirname basename);
 use Data::Dumper;
@@ -103,13 +104,9 @@ sub init {
     $self->{PERFSONARBUOY_CONF_FILE}     = $parameters->{perfsonarbuoy_conf_file}     if ( $parameters->{perfsonarbuoy_conf_file} );
     $self->{PINGER_LANDMARKS_CONF_FILE}  = $parameters->{pinger_landmarks_file}       if ( $parameters->{pinger_landmarks_file} );
 
-    unless ( $parameters->{tests} ) {
-        ( $status, $res ) = $self->reset_state();
-        if ( $status != 0 ) {
-            return ( $status, $res );
-        }
-        
-        return ( 0, "" );
+    ( $status, $res ) = $self->reset_state();
+    if ( $status != 0 ) {
+        return ( $status, $res );
     }
     
     $self->{LOCAL_ADDRS}        = dclone( $parameters->{local_addresses} ) if $parameters->{local_addresses};
@@ -1311,12 +1308,19 @@ sub generate_pinger_landmarks_file {
             foreach my $member_id ( keys %{ $test->{members} } ) {
                 my $member = $test->{members}->{$member_id};
 
+                my $address = $member->{address};
+                if ( is_hostname($address) ) {
+                    $member->{name} = $address unless $member->{name};
+                    my $packed_ip = gethostbyname( $address );
+                    $address = inet_ntoa($packed_ip) if (defined $packed_ip);
+                }
+                
                 my $ip_type;
-
-                if ( is_ipv4( $member->{address} ) ) {
+                
+                if ( is_ipv4( $address ) ) {
                     $ip_type = "IPv4";
                 }
-                elsif ( &Net::IPv6Addr::is_ipv6( $member->{address} ) ) {
+                elsif ( &Net::IPv6Addr::is_ipv6( $address ) ) {
                     $ip_type = "IPv6";
                 }
 
@@ -1324,7 +1328,8 @@ sub generate_pinger_landmarks_file {
                 do {
                     $new_urn = $domain_urn . ":node=" . genuid();
                 } while ( $used_urns{$new_urn} );
-
+                
+                
                 my $node_obj = Node->new(
                     {
                         id          => $new_urn,
@@ -1332,8 +1337,12 @@ sub generate_pinger_landmarks_file {
                         name        => HostName->new( { text => $member->{name} } ),
                         port        => Port->new(
                             {
-                                xml => "<nmtl3:port xmlns:nmtl3=\"http://ogf.org/schema/network/topology/l3/20070707/\" id=\"$new_urn:port=$member->{address}\">
-                            <nmtl3:ipAddress type=\"$ip_type\">$member->{address}</nmtl3:ipAddress>
+                            #
+                            # GFR: We don't know the port id; to assume that it
+                            #   is uses the IP address can be wrong, so use *.
+                            #
+                                xml => "<nmtl3:port xmlns:nmtl3=\"http://ogf.org/schema/network/topology/l3/20070707/\" id=\"$new_urn:port=*\">
+                            <nmtl3:ipAddress type=\"$ip_type\">$address</nmtl3:ipAddress>
                             </nmtl3:port>"
                             }
                         ),

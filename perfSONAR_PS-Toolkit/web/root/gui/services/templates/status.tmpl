@@ -16,7 +16,7 @@
 <br/>
 [% IF last_modified_date != "never" %]
 <center><font color="red"><div id="must_push">There are local modifications that have not been pushed!.</div></font></center>
-<center><font color="red"><div id="must_push">Services will only update their configuration from UNIS.</div></font></center>
+<center><font color="red"><div id="must_push2">Services will only update their configuration from UNIS.</div></font></center>
 [% END %]
 <br/>
 <input class="button" type="submit" name="push_config" id="push_config" value="Push Configuration to UNIS" onClick="handle_pushpull('push')">
@@ -45,6 +45,9 @@ function handle_pushpull_response(response, io_args) {
         
         dojo.byId('last_pull').innerHTML="The configuration was last pulled on: " + response['last_pull_date'];
         dojo.byId('last_mod').innerHTML="The configuration was last modified on: " + response['last_modified_date'];
+        
+        dojo.byId('must_push').style({ display:"none" });
+        dojo.byId('must_push2').style({ display:"none" });
         
         dojo.byId('nptoolkit_is_modified').value = 0;
     } else {

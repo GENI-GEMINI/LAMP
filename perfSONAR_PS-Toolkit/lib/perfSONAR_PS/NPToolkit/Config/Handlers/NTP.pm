@@ -49,7 +49,7 @@ sub load_encoded {
     
     $self->{SERVERS} = ();
     
-    foreach my $server ( $parameters->{service}->getChildrenByTagNameNS( NTP_PSCONFIG_NS, "server" )->get_nodelist ) {
+    foreach my $server ( $parameters->{service}->getChildrenByTagNameNS( NTP_PSCONFIG_NS, "server" ) ) {
         my $address = extract( $server,  1 );
         $self->{SERVERS}->{ $address } = 1;
         $self->{EMPTY} = 0;
