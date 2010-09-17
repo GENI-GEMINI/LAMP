@@ -28,6 +28,7 @@ use base 'perfSONAR_PS::NPToolkit::Config::Base';
 
 use fields 'LOCAL_ADDRS', 'LOCAL_PORT_RANGES', 'TESTS', 'PERFSONARBUOY_CONF_TEMPLATE', 'PERFSONARBUOY_CONF_FILE', 'PINGER_LANDMARKS_CONF_FILE', 'OWMESH_PARAMETERS';
 
+use Sys::Hostname;
 use Socket;
 use POSIX;
 use File::Basename qw(dirname basename);
@@ -57,7 +58,7 @@ use OWP::Conf;
 use perfSONAR_PS::NPToolkit::ConfigManager::Utils qw( save_file restart_service stop_service );
 use perfSONAR_PS::Utils::DNS qw( reverse_dns resolve_address );
 use perfSONAR_PS::Common qw(genuid);
-use perfSONAR_PS::NPToolkit::Config::ExternalAddress;
+#use perfSONAR_PS::NPToolkit::Config::ExternalAddress;
 
 # These are the defaults for LAMP
 my %defaults = (
@@ -1826,10 +1827,27 @@ sub generate_owmesh_conf {
 
         unless ($test->{center}->{ipv4_address} or $test->{center}->{ipv6_address}) {
             # Set the default addresses if there is no test center
-            my $external_address_config = perfSONAR_PS::NPToolkit::Config::ExternalAddress->new();
-            if ( $external_address_config->init() == 0 ) {
-                $test->{center}->{ipv4_address} = $external_address_config->get_primary_ipv4();
-                $test->{center}->{ipv6_address} = $external_address_config->get_primary_ipv6();
+            
+            # GFR: (LAMP) Tests must go out the virtual network, so we can't use ExternalAddress 
+            #
+            #my $external_address_config = perfSONAR_PS::NPToolkit::Config::ExternalAddress->new();
+            #if ( $external_address_config->init() == 0 ) {
+            #    $test->{center}->{ipv4_address} = $external_address_config->get_primary_ipv4();
+            #    $test->{center}->{ipv6_address} = $external_address_config->get_primary_ipv6();
+            #}
+            #
+            # Instead we try to resolve our virtual IP by using our localname and gethostbyname.
+            # This should be more trustworthy than just taking a private ip from the interfaces,
+            # since some control planes may use private addresses. It does require the CF to do
+            # create the right /etc/hosts entries (Emulab does).
+            #
+            my $localname = hostname;
+            $localname =~ s/^[^\.]+//;
+            
+            my $packed_ip = gethostbyname( $localname );
+            if (defined $packed_ip) {
+                $test->{center}->{ipv4_address} = inet_ntoa($packed_ip);
+                $test->{center}->{ipv6_address} = undef;
             }
         }
 

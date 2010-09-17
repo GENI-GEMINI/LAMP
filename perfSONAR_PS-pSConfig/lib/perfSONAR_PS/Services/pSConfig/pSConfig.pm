@@ -72,7 +72,7 @@ sub init {
     }
     
     if ( exists $self->{CONF}->{"psconfig"}->{"node_id"} and $self->{CONF}->{"psconfig"}->{"node_id"} ) {
-        unless( idIsFQ( $self->{CONF}->{"psconfig"}->{"node_id"} ) ) {
+        unless( idIsFQ( $self->{CONF}->{"psconfig"}->{"node_id"}, "node" ) ) {
             $self->{LOGGER}->error("node_id must be fully qualified.");
             return -1;
         }
@@ -83,7 +83,7 @@ sub init {
         $self->{NODE_ID} = idConstruct( "domain", $self->{CONF}->{"psconfig"}->{"domain"}, "node", $self->{CONF}->{"psconfig"}->{"node"}, q{} );
     }
     elsif ( exists $self->{CONF}->{"node_id"} and $self->{CONF}->{"node_id"} ) {
-        unless( idIsFQ( $self->{CONF}->{"node_id"} ) ) {
+        unless( idIsFQ( $self->{CONF}->{"node_id"}, "node"  ) ) {
             $self->{LOGGER}->error("node_id must be fully qualified.");
             return -1;
         }

@@ -43,6 +43,7 @@ my @default_known_services = (
     {
         name                      => "ls_registration_daemon",
         description               => "LS Registration Daemon",
+        enabled_services_variable => "ls_registration_daemon_enabled",
         service_name              => "ls_registration_daemon",
         enabled                   => 1,
     },
@@ -93,13 +94,13 @@ my @default_known_services = (
         description               => "SSH",
         enabled_services_variable => "ssh_enabled",
         service_name              => "sshd",
-        enabled                   => 0,
+        enabled                   => 1,
     },
     {
         name                      => "http",
         description               => "Web Services",
         enabled_services_variable => "https_enabled",
-        service_name              => "httpd",
+        service_name              => "apache2",
         enabled                   => 1,
     },
     {
@@ -127,7 +128,7 @@ my @default_known_services = (
         name                      => "ntp",
         description               => "NTP",
         enabled_services_variable => "ntpd_enabled",
-        service_name              => "ntpd",
+        service_name              => "ntp",
         enabled                   => 0,
     },
     
@@ -143,7 +144,8 @@ my @default_known_services = (
         name                      => "ganglia_gmetad",
         description               => "Host Monitoring Collector (Ganglia)",
         enabled_services_variable => "ganglia_gmetad_enabled",
-        service_name              => [ "gmond", "gmetad" ],
+        service_name              => "gmetad",
+        dependencies              => [ 'ganglia_gmond', ],
         enabled                   => 0,
     },
 
@@ -151,7 +153,8 @@ my @default_known_services = (
         name                      => "ganglia_ma",
         description               => "Ganglia MA",
         enabled_services_variable => "ganglia_ma_enabled",
-        service_name              => "ganglia_ma",
+        service_name              => [],
+        dependencies              => [ 'snmp_ma', ],
         enabled                   => 0,
     },
 
@@ -159,7 +162,8 @@ my @default_known_services = (
         name                      => "periscope",
         description               => "Periscope",
         enabled_services_variable => "periscope_enabled",
-        service_name              => "httpd",
+        service_name              => [],
+        dependencies              => [ 'http', ],
         enabled                   => 0,
     },
 
@@ -167,7 +171,8 @@ my @default_known_services = (
         name                      => "lamp_portal",
         description               => "LAMP Portal",
         enabled_services_variable => "lamp_portal_enabled",
-        service_name              => "httpd",
+        service_name              => [],
+        dependencies              => [ 'http', ],
         enabled                   => 0,
     },
     {
@@ -358,6 +363,15 @@ sub enable_service {
     return -1 unless ( $self->{SERVICES}->{$name} );
 
     $self->{SERVICES}->{$name}->{enabled} = 1;
+    
+    # TODO: How are these disabled? 
+    if ( exists $self->{SERVICES}->{$name}->{dependencies} ) {
+        foreach my $dep ( @{ $self->{SERVICES}->{$name}->{dependencies} } ) {
+            next if $self->{SERVICES}->{$dep}->{enabled};
+            
+            $self->enable_service( { name => $dep } );
+        }
+    }
 
     return 0;
 }
