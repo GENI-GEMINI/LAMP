@@ -148,7 +148,7 @@ $http->init( pid_files => $http_pid, init_script => $http_init_script, process_n
 # do a 'restart' pass if the "--regular-restart" flag was specified
 if ($REGULAR_RESTART) {
 	foreach my $service ( $psconfig, $mysql, $owamp, $bwctl, $npad, $ndt, $psb_ma, $pinger, $snmp_ma, $psb_owamp_collector,
-	                      $psb_owamp_master, $psb_bwctl_collector, $psb_bwctl_master, $ls_registration_daemon, $gmond, $gmetad ) {
+	                      $psb_owamp_master, $psb_bwctl_collector, $psb_bwctl_master, $ls_registration_daemon, $gmond, $gmetad, $http ) {
 	                      
 		my ($status, $res);
 
@@ -184,7 +184,7 @@ if ($REGULAR_RESTART) {
 }
 # do a single pass to see if the services are up, and try to start them. Report any that are down.
 foreach my $service ( $psconfig, $mysql, $owamp, $bwctl, $npad, $ndt, $psb_ma, $pinger, $snmp_ma, $psb_owamp_collector,
-                     $psb_owamp_master, $psb_bwctl_collector, $psb_bwctl_master, $ls_registration_daemon, $gmond, $gmetad ) {
+                     $psb_owamp_master, $psb_bwctl_collector, $psb_bwctl_master, $ls_registration_daemon, $gmond, $gmetad, $http ) {
 	my ($status, $res);
 
 	($status, $res) = $service->is_enabled();
@@ -229,7 +229,7 @@ foreach my $service ( $psconfig, $mysql, $owamp, $bwctl, $npad, $ndt, $psb_ma, $
 
 # do a single pass of all the services that are up, and send "OK" messages for all the ones that are running.
 foreach my $service ( $psconfig, $mysql, $owamp, $bwctl, $npad, $ndt, $psb_ma, $pinger, $snmp_ma, $psb_owamp_collector,
-                     $psb_owamp_master, $psb_bwctl_collector, $psb_bwctl_master, $ls_registration_daemon, $gmond, $gmetad ) {
+                     $psb_owamp_master, $psb_bwctl_collector, $psb_bwctl_master, $ls_registration_daemon, $gmond, $gmetad, $http ) {
 	my ($status, $res);
 
 	($status, $res) = $service->is_enabled();
