@@ -147,10 +147,8 @@ sub fill_variables {
         };
     }
     
-    if ( $cgi->param("args") ) {
-        my $node_id = $cgi->param("args");
-        $ntp_nodes{ $node_id }->{selected} = 1;
-    }
+    my ( $node_id ) = $cgi->param("args");
+    $ntp_nodes{ $node_id }->{selected} = 1 if $node_id; 
     
     unless ( keys %ntp_nodes ) {
         $error_msg = "There are no nodes with NTP enabled.";

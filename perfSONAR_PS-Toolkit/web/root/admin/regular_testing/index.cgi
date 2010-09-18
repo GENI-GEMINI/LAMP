@@ -96,7 +96,7 @@ else {
     save_state();
 }
 
-my $psconf = perfSONAR_PS::NPToolkit::Config::$psconf->new();
+my $psconf = perfSONAR_PS::NPToolkit::Config::pSConfig->new();
 $psconf->init( { unis_instance => $conf{unis_instance} } );
 
 if ($testing_conf->last_modified() > $initial_state_time) {

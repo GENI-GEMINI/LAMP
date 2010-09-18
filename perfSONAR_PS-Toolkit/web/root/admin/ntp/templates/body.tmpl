@@ -14,6 +14,12 @@ function handle_save() {
     var node = dijit.byId('node_select').attr('value');
     handle_cgi_ajax_call('Saving configuration...', 'Problem saving configuration', true, 'save_config', node);
 }
+
+function handle_select_closest() {
+    var node = dijit.byId('node_select').attr('value');
+    handle_cgi_ajax_call('Querying servers to find closest...', 'Problem finding closest ntp services', true, 'select_closest', [ node, '5']);
+}
+
 </script>
 
 <div>
@@ -63,7 +69,7 @@ function handle_save() {
 
 <input class="button" type="submit" name="display_add_server_button" id="display_add_server_button" onClick="dijit.byId('dialog_add_ntp_server').show()" value="Add New NTP Server">
 [% IF enable_select_closest %]
-<input class="button" type="submit" name="select_closest" id="select_closest" value="Select Closest Servers" onClick="handle_cgi_ajax_call('Querying servers to find closest...', 'Problem finding closest ntp services', true, 'select_closest', ['5']);">
+<input class="button" type="submit" name="select_closest" id="select_closest" value="Select Closest Servers" onClick="handle_select_closest();">
 [% END %]
 <br>
 <input class="button" type="submit" name="save" id="save" value="Save" onClick="handle_save();">
