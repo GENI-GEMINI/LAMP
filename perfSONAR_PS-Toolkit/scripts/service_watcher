@@ -51,6 +51,9 @@ my $mysql_init_script          = "mysqld";
 my $mysql_pname                = "mysql";
 my $pSConfig_pid               = "/var/run/psconfig.pid";
 my $pSConfig_pname             = "daemon.pl";
+my $http_pid                  = "/var/run/apache2.pid";
+my $http_init_script          = "apache2";
+my $http_pname                = "apache2";
 
 my ($LOGGER_CONF, $CONFIG_FILE, $REGULAR_RESTART, $DEBUGFLAG);
 
@@ -139,6 +142,8 @@ my $gmetad = perfSONAR_PS::ServiceWatcher::Gmetad->new();
 $gmetad->init( pid_files => $gmetad_pid, process_names => $gmetad_pname );
 my $psconfig = perfSONAR_PS::ServiceWatcher::pSConfig->new();
 $psconfig->init( pid_files => $pSConfig_pid, process_names => $pSConfig_pname );
+my $http = perfSONAR_PS::ServiceWatcher::HTTP->new();
+$http->init( pid_files => $http_pid, init_script => $http_init_script, process_names => $http_pname );
 
 # do a 'restart' pass if the "--regular-restart" flag was specified
 if ($REGULAR_RESTART) {
@@ -1307,5 +1312,44 @@ sub check_state {
     }
 
     return (0, "");
+}
+
+package perfSONAR_PS::ServiceWatcher::HTTP;
+
+use base 'perfSONAR_PS::ServiceWatcher::Base';
+
+use fields 'INIT_SCRIPT';
+
+sub init {
+    my ( $self, %conf ) = @_;
+
+    $self->{SERVICE_NAME} = "mysql";
+    $self->{INIT_SCRIPT} = $conf{init_script};
+    $self->SUPER::init( %conf );
+
+    return 0;
+}
+
+sub start {
+        my ($self) = @_;
+
+        system("/etc/init.d/".$self->{INIT_SCRIPT}." start");
+        if ($? == 0) {
+                return 0;
+        } else {
+                $self->{LOGGER}->error("httpd failed to start");
+                return -1;
+        }
+}
+
+# kill any process matching the ls registration daemon
+sub kill {
+        my ($self) = @_;
+
+        system("pkill -f apache2");
+        sleep(3);
+        system("pkill -9 -f apache2");
+
+        return (0, "");
 }
 
