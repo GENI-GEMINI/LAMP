@@ -1801,6 +1801,7 @@ sub handleEvent {
             data              => 1,
             rawRequest        => 1,
             doOutputMetadata  => 1,
+            credentials       => 0,
         }
     );
     my $nlmsg = perfSONAR_PS::Utils::NetLogger::format("org.perfSONAR.Services.MA.pSB.handleEvent.start");

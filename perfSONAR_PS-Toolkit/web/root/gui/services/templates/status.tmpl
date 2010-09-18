@@ -48,8 +48,6 @@ function handle_pushpull_response(response, io_args) {
         
         dojo.byId('must_push').style({ display:"none" });
         dojo.byId('must_push2').style({ display:"none" });
-        
-        dojo.byId('nptoolkit_is_modified').value = 0;
     } else {
         dojo.byId('web_admin_error').innerHTML="Received unknown response from service";
     }

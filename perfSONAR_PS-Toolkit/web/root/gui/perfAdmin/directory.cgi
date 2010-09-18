@@ -20,6 +20,7 @@ use Template;
 use CGI;
 use Log::Log4perl qw(get_logger :easy :levels);
 use Config::General;
+use JSON::XS;
 
 use FindBin qw($RealBin);
 my $basedir = "$RealBin/";
@@ -63,23 +64,48 @@ my $domain_id = idRemoveLevel( $conf{node_id} );
 my $registered_services = perfSONAR_PS::NPToolkit::Config::RegisteredServices->new();
 $registered_services->init( { unis_instance => $conf{unis_instance}, domain_id => $domain_id } );
 
-print $CGI->header();
+my $function = $CGI->param("fname");
+unless ( $function ) {
+    print $CGI->header();
 
-my $tt = Template->new( INCLUDE_PATH => $conf{template_directory} ) or die( "Couldn't initialize template toolkit" );
+    my $tt = Template->new( INCLUDE_PATH => $conf{template_directory} ) or die( "Couldn't initialize template toolkit" );
+    
+    my $html;
+    
+    my %vars = (
+        modification_time   => $registered_services->last_modified(),
+        anchortypes         => $registered_services->get_anchors(),
+        daemons             => $registered_services->get_daemons(),
+        services            => $registered_services->get_services(),
+        nodes               => $registered_services->get_nodes(),
+    );
+    
+    $tt->process( "directory.tmpl", \%vars, \$html ) or die $tt->error();
+    
+    print $html;
 
-my $html;
+} 
+elsif ($function eq "pull_registered") {
+    my $res = $registered_services->pull_registered();
+    if ( $res != 0 ) {
+        my %resp = ( error => "Couldn't pull registered services." );
+        print "Content-type: text/json\n\n";
+        print encode_json(\%resp);
+        return;
+    }
 
-my %vars = (
-    modification_time   => $registered_services->last_modified(),
-    anchortypes         => $registered_services->get_anchors(),
-    daemons             => $registered_services->get_daemons(),
-    services            => $registered_services->get_services(),
-    nodes               => $registered_services->get_nodes(),
-);
+    my %resp = (
+        last_pull_date     => $registered_services->last_modified(),
+    );
+    
+    print "Content-type: text/json\n\n";
+    print encode_json(\%resp);
+}
+else {
+    die("Unknown function: $function");
+}
 
-$tt->process( "directory.tmpl", \%vars, \$html ) or die $tt->error();
-
-print $html;
+exit 0;
 
 __END__
 

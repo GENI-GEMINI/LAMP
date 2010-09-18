@@ -2,14 +2,40 @@
 
 [% INCLUDE header.tmpl %]
 
+<script type="text/javascript">
+function handle_pull() {
+    dojo.xhrGet ({
+            url: '[% self_url %]',
+            handleAs: "json",
+            content: { 'fname': 'pull_registered' },
+            timeout: 300000,
+            load: handle_pull_response,
+            error: function (response, io_args) { dojo.byId('web_admin_error').innerHTML="Problem pulling registered services."; },
+            mimetype: "text/json" 
+        });
+}
+
+function handle_pull_response(response, io_args) {
+    if (response['error']) {
+        dojo.byId('web_admin_error').innerHTML=response['error'];
+    } else if (response['last_pull_date']) {
+        window.location.reload()
+    } else {
+        dojo.byId('web_admin_error').innerHTML="Received unknown response from service";
+    }
+}
+</script>
+
 <div class="mainContainer">
 <div class="rContainer">
 <div class="subTitle1">[% title %]</div>
 
 <div class="rcontainer">
-
-    <center><i>Information Last Fetched [% modification_time %]</i></center>
+    <center><font color="red"><div id="web_admin_error">[% error_message %]</div></font></center>
+    <center><i><div id="last_fetch">Information Last Fetched [% modification_time %]</div></i></center>
     <br /><br />
+ 
+ <input class="button" type="submit" name="pull_config" id="pull_config" value="Pull Registered Services from UNIS" onClick="handle_pull()">
  
     <table class="basic_table">
       <tr>
