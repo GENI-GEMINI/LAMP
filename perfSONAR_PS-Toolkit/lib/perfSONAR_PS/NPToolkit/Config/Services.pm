@@ -356,20 +356,21 @@ sub lookup_service {
 
 sub enable_service {
     my ( $self, @params ) = @_;
-    my $parameters = validate( @params, { name => 1, } );
+    my $parameters = validate( @params, { name => 1, dependant => 0 } );
 
     my $name = $parameters->{name};
 
     return -1 unless ( $self->{SERVICES}->{$name} );
 
-    $self->{SERVICES}->{$name}->{enabled} = 1;
+    $self->{SERVICES}->{$name}->{enabled}   = 1;
+    $self->{SERVICES}->{$name}->{dependant} = 1 if $parameters->{dependant};
     
     # TODO: How are these disabled? 
     if ( exists $self->{SERVICES}->{$name}->{dependencies} ) {
         foreach my $dep ( @{ $self->{SERVICES}->{$name}->{dependencies} } ) {
             next if $self->{SERVICES}->{$dep}->{enabled};
             
-            $self->enable_service( { name => $dep } );
+            $self->enable_service( { name => $dep, dependant => 1 } );
         }
     }
 
@@ -388,7 +389,10 @@ sub disable_service {
     my $name = $parameters->{name};
 
     return -1 unless ( $self->{SERVICES}->{$name} );
-
+    
+    # TODO: This needs better semantics (who has priority?).
+    return 0 if $self->{SERVICES}->{$name}->{dependant};
+    
     $self->{SERVICES}->{$name}->{enabled} = 0;
 
     return 0;
