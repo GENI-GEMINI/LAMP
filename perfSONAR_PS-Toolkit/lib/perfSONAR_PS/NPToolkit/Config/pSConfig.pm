@@ -65,6 +65,7 @@ my %known_services = (
     },
 
     "ls_registration_daemon" => {
+        nodisplay   => 1,
         type        => "ls_registration_daemon",
         short_name  => "LS Registration Daemon",
         name        => "LS Registration Daemon",

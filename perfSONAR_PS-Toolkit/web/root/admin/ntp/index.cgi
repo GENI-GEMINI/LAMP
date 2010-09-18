@@ -20,7 +20,7 @@ my $basedir = "$RealBin/";
 use lib "$RealBin/../../../../lib";
 
 use perfSONAR_PS::NPToolkit::Config::NTP;
-use perfSONAR_PS::NPToolkit::Config::Services;
+use perfSONAR_PS::NPToolkit::Config::pSConfig;
 use perfSONAR_PS::NPToolkit::Config::Handlers::NTP;
 use perfSONAR_PS::Utils::NTP qw( ping );
 use perfSONAR_PS::Utils::DNS qw( reverse_dns resolve_address );
@@ -58,8 +58,8 @@ if ( $conf{debug} ) {
 
 $logger->info( "templates dir: $conf{template_directory}" );
 
-my $services_conf = perfSONAR_PS::NPToolkit::Config::Services->new();
-$services_conf->init( { unis_instance => $conf{unis_instance} } );
+my $psconfig = perfSONAR_PS::NPToolkit::Config::pSConfig->new();
+$psconfig->init( { unis_instance => $conf{unis_instance} } );
 
 my $cgi = CGI->new();
 our $session;
@@ -135,11 +135,11 @@ sub fill_variables {
 
     my @vars_servers = ();
     
-    my $nodes = $services_conf->get_config_nodes();
+    my $nodes = $psconfig->get_config_nodes();
     
     my %ntp_nodes = ();
     foreach my $node_id ( keys %{ $nodes } ) {
-        next unless $services_conf->lookup_service( { node_id => $node_id, type => "ntp" } );
+        next unless $psconfig->lookup_service( { node_id => $node_id, type => "ntp" } );
         
         $ntp_nodes{ $node_id } = {
              name     => $nodes->{ $node_id }->{name},
@@ -205,7 +205,7 @@ sub save_config {
     
     if ( $cgi->param("args") ) {
         my $node_id = $cgi->param("args");
-        my $service = $services_conf->lookup_service( { node_id => $node_id, type => "ntp" } );
+        my $service = $psconfig->lookup_service( { node_id => $node_id, type => "ntp" } );
         
         my @servers = ();
         my $ntp_servers = $ntp_conf->get_servers(); 
@@ -217,7 +217,7 @@ sub save_config {
         
         my $modified = $service->{CONFIGURATION}->set_servers( { servers => \@servers } );
         
-        ($status, $res) = $services_conf->save( { set_modified => $modified } );
+        ($status, $res) = $psconfig->save( { set_modified => $modified } );
     }
     
     if ($status != 0) {
@@ -316,7 +316,7 @@ sub reset_state {
     
     if ( $cgi->param("args") ) {
         my $node_id = $cgi->param("args");
-        my $service = $services_conf->lookup_service( { node_id => $node_id, type => "ntp" } );
+        my $service = $psconfig->lookup_service( { node_id => $node_id, type => "ntp" } );
         
         foreach my $address ( keys %{ $service->{CONFIGURATION}->get_servers() } ) {
             toggle_server( $address, "on" );
