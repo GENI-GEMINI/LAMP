@@ -101,7 +101,7 @@ my @default_known_services = (
         description               => "Web Services",
         enabled_services_variable => "https_enabled",
         service_name              => "apache2",
-        enabled                   => 1,
+        enabled                   => 0,
     },
     {
         name                      => "perfsonarbuoy_ma",
@@ -145,7 +145,7 @@ my @default_known_services = (
         description               => "Host Monitoring Collector (Ganglia)",
         enabled_services_variable => "ganglia_gmetad_enabled",
         service_name              => "gmetad",
-        dependencies              => [ 'ganglia_gmond', ],
+        dependencies              => [ 'ganglia_gmond', 'http', ],
         enabled                   => 0,
     },
 
