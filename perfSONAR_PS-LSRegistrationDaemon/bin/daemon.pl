@@ -96,17 +96,11 @@ unless ( $SERVER_CERT ) {
     if ( exists $conf{"ssl_server_cert_file"} and $conf{"ssl_server_cert_file"} ) {
         $SERVER_CERT = $conf{"ssl_server_cert_file"};
     }
-    else {
-        $SERVER_CERT = $confdir . "/certs/server-cert.pem";
-    }
 }
     
 unless ( $SERVER_KEYFILE ) {
     if ( exists $conf{"ssl_server_key_file"} and $conf{"ssl_server_key_file"} ) {
         $SERVER_KEYFILE = $conf{"ssl_server_key_file"};
-    }
-    else {
-        $SERVER_KEYFILE = $confdir . "/certs/server-key.pem";
     }
 }
 
