@@ -19,7 +19,7 @@ use Data::Dumper;
 
 use base 'perfSONAR_PS::NPToolkit::Config::Base';
 
-use fields 'UNIS_INSTANCE', 'ROOT', 'NODES', 'CONFIG_NODES', 'CONFIG_FILE', 'MODIFIED', 'LAST_PULL_DATE', 'LAST_MODIFIED_DATE';
+use fields 'UNIS_INSTANCE', 'ROOT', 'NODES', 'CONFIG_NODES', 'LAST_PULL_FILE', 'CURRENT_STATE_FILE', 'MODIFIED', 'LAST_PULL_DATE', 'LAST_MODIFIED_DATE';
 
 use Params::Validate qw(:all);
 use Log::Log4perl qw(get_logger :nowarn);
@@ -42,7 +42,8 @@ use constant UNIS_NS     => 'http://ogf.org/schema/network/topology/unis/2010052
 use constant PSCONFIG_NS => 'http://ogf.org/schema/network/topology/psconfig/20100716/';
 
 my %defaults = (
-    config_file => "/home/fernandes/sandbox/XXX",
+    last_pull_file     => "/var/lib/perfsonar/web_admin/last_pull",
+    current_state_file => "/var/lib/perfsonar/web_admin/current_state",
 );
 
 my %known_services = (
@@ -247,13 +248,15 @@ should use for pulling/pushing the configuration.
 
 sub init {
     my ( $self, @params ) = @_;
-    my $parameters = validate( @params, { unis_instance => 1, config_file => 0 } );
+    my $parameters = validate( @params, { unis_instance => 1, last_pull_file => 0 } );
 
     # Initialize the defaults
-    $self->{CONFIG_FILE} = $defaults{config_file};
+    $self->{LAST_PULL_FILE}     = $defaults{last_pull_file};
+    $self->{CURRENT_STATE_FILE} = $defaults{current_state_file};
 
     # Override any
-    $self->{CONFIG_FILE} = $parameters->{config_file} if ( $parameters->{config_file} );
+    $self->{LAST_PULL_FILE}     = $parameters->{last_pull_file} if ( $parameters->{last_pull_file} );
+    $self->{CURRENT_STATE_FILE} = $parameters->{current_state_file} if ( $parameters->{current_state_file} );
     
     # XXX: This could be determined through the hints file, especially 
     #   as there might be the need for querying multiple UNIS instances 
@@ -297,10 +300,10 @@ sub reset_state {
     my $must_pull = 1;
     # The frozen representation should always exist, unless there was
     # a problem with the parsing. In which case we should pull from UNIS anyways.
-    if ( -e $self->{CONFIG_FILE} and -e $self->{CONFIG_FILE} . ".frozen" ) {
+    if ( -e $self->{LAST_PULL_FILE} and -e $self->{CURRENT_STATE_FILE} ) {
         $must_pull = 0;
         eval {
-            my $fd = new IO::File( $self->{CONFIG_FILE} ) or die " Failed to open config file.";
+            my $fd = new IO::File( $self->{LAST_PULL_FILE} ) or die " Failed to open config file.";
             
             # First line should be the last pull date.
             # We make sure it's a valid date, but keep it in string format.
@@ -374,7 +377,7 @@ sub pull_configuration {
    
     # Save what we just pulled to disk for book keeping
     eval {
-        my $fd = new IO::File( "> ". $self->{CONFIG_FILE} ) or die " Failed to open config file.";
+        my $fd = new IO::File( "> ". $self->{LAST_PULL_FILE} ) or die " Failed to open config file.";
         
         # First line should be the last pull date (i.e. now).
         print $fd $self->{LAST_PULL_DATE} . "\n";
@@ -418,7 +421,7 @@ sub push_configuration {
     # *will* lose his changes though.)
     my $old_topo = '';
     eval {
-        my $fd = new IO::File( $self->{CONFIG_FILE} ) or die " Failed to open config file.";
+        my $fd = new IO::File( $self->{LAST_PULL_FILE} ) or die " Failed to open config file.";
         
         my $last_pull = <$fd>;
         
@@ -781,7 +784,7 @@ sub save_state {
         LAST_MODIFIED_DATE  => $self->{LAST_MODIFIED_DATE},
     );
 
-    return -1 unless store( \%state, $self->{CONFIG_FILE} . ".frozen" );
+    return -1 unless store( \%state, $self->{CURRENT_STATE_FILE} );
 
     return 0;
 }
@@ -795,9 +798,9 @@ sub restore_state {
     my ( $self, @params ) = @_;
     my $parameters = validate( @params, {} );
 
-    return -1 unless -f $self->{CONFIG_FILE} . ".frozen";
+    return -1 unless -f $self->{CURRENT_STATE_FILE};
     
-    my $state = retrieve( $self->{CONFIG_FILE} . ".frozen" );
+    my $state = retrieve( $self->{CURRENT_STATE_FILE} );
     
     return -1 unless $state;
     
@@ -821,8 +824,8 @@ sub clear_state {
     my ( $self, @params ) = @_;
     my $parameters = validate( @params, {} );
 
-    unlink ( $self->{CONFIG_FILE} );
-    unlink ( $self->{CONFIG_FILE} . ".frozen" );
+    unlink ( $self->{LAST_PULL_FILE} );
+    unlink ( $self->{CURRENT_STATE_FILE} );
     
     $self->{NODES}              = undef;
     $self->{CONFIG_NODES}       = undef;
