@@ -47,7 +47,7 @@ my $ls_registration_daemon_pid = "/var/run/ls_registration_daemon.pid";
 my $ls_registration_daemon_init_script = "ls_registration_daemon";
 my $ls_registration_daemon_pname = "daemon.pl";
 my $mysql_pid                  = "/var/run/mysqld/mysqld.pid";
-my $mysql_init_script          = "mysqld";
+my $mysql_init_script          = "mysql";
 my $mysql_pname                = "mysql";
 my $pSConfig_pid               = "/var/run/psconfig.pid";
 my $pSConfig_pname             = "daemon.pl";
@@ -1323,7 +1323,7 @@ use fields 'INIT_SCRIPT';
 sub init {
     my ( $self, %conf ) = @_;
 
-    $self->{SERVICE_NAME} = "mysql";
+    $self->{SERVICE_NAME} = "http";
     $self->{INIT_SCRIPT} = $conf{init_script};
     $self->SUPER::init( %conf );
 
