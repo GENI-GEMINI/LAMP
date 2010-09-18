@@ -1023,7 +1023,7 @@ sub init {
 sub start {
 	my ($self) = @_;
 
-	system("/sbin/service ".$self->{INIT_SCRIPT}." start");
+	system("/etc/init.d/".$self->{INIT_SCRIPT}." start");
 	if ($? == 0) {
 		return 0;
 	} else {
@@ -1060,7 +1060,7 @@ sub init {
 sub start {
 	my ($self) = @_;
 
-	system("/sbin/service ".$self->{INIT_SCRIPT}." start");
+	system("/etc/init.d/".$self->{INIT_SCRIPT}." start");
 	if ($? == 0) {
 		return 0;
 	} else {
@@ -1123,7 +1123,7 @@ sub init {
 sub start {
 	my ($self) = @_;
 
-	system("/sbin/service ".$self->{INIT_SCRIPT}." start");
+	system("/etc/init.d/".$self->{INIT_SCRIPT}." start");
 	if ($? == 0) {
 		return 0;
 	} else {
@@ -1175,7 +1175,7 @@ sub init {
 sub start {
 	my ($self) = @_;
 
-	system("/sbin/service ".$self->{INIT_SCRIPT}." start");
+	system("/etc/init.d/".$self->{INIT_SCRIPT}." start");
 	if ($? == 0) {
 		return 0;
 	} else {
