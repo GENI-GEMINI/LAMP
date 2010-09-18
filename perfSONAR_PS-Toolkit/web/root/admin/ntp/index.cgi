@@ -332,7 +332,7 @@ sub save_state {
 }
 
 sub select_closest {
-    my ( $count ) = @_;
+    my ( $node, $count ) = @_;
 
     my @servers = ();
 

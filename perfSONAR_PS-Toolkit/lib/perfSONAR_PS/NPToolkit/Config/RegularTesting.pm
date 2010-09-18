@@ -112,7 +112,7 @@ sub init {
     
     $self->{LOCAL_ADDRS}        = dclone( $parameters->{local_addresses} ) if $parameters->{local_addresses};
     $self->{LOCAL_PORT_RANGES}  = dclone( $parameters->{local_ports} )  if $parameters->{local_ports};
-    $self->{TESTS}              = dclone( $parameters->{tests} );
+    $self->{TESTS}              = dclone( $parameters->{tests} ) if $parameters->{tests};
 
     return ( 0, "" );
 }
