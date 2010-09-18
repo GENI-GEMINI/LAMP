@@ -702,6 +702,8 @@ sub enable_service {
         
         $service_ref->{enabled} = 1;
         
+        $self->{MODIFIED} = 1;
+        
         return 0;
     }
     
