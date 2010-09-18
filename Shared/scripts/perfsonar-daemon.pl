@@ -501,7 +501,7 @@ if ( exists $conf{"scheduler"} and $conf{"scheduler"} ) {
     }
     
     foreach my $sched_service ( @services ) {
-        my %service_conf = %{ mergeConfig( \%conf, $sched_service ) };
+        my %service_conf = %{ mergeConfig( \%conf, $sched_service, 1 ) };
 
         next if exists $service_conf{"disabled"} and $service_conf{"disabled"} == 1;
         

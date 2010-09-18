@@ -940,16 +940,17 @@ Merges the configurations in $base and $specific.
 =cut
 
 sub mergeConfig {
-    my ( $base, $specific ) = @_;
+    my ( $base, $specific, $service ) = @_;
     my $logger = get_logger( "perfSONAR_PS::Common" );
 
     my %elements = (
         port        => 1,
         endpoint    => 1,
         scheduler   => 1,
-        service     => 1
     );
-
+    
+    $elements{service} = 1 if $service;
+    
     my $ret_config = mergeHash( $base, $specific, \%elements );
 
     return $ret_config;
