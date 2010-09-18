@@ -20,13 +20,13 @@ use Template;
 use CGI;
 use Log::Log4perl qw(get_logger :easy :levels);
 use Config::General;
- 
-use perfSONAR_PS::Topology::ID qw(idRemoveLevel);
-use perfSONAR_PS::NPToolkit::Config::RegisteredServices;
- 
+
 use FindBin qw($RealBin);
 my $basedir = "$RealBin/";
 use lib "$RealBin/../../../../lib";
+
+use perfSONAR_PS::Topology::ID qw(idRemoveLevel);
+use perfSONAR_PS::NPToolkit::Config::RegisteredServices;
 
 my $CGI      = CGI->new();
 

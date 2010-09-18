@@ -53,7 +53,7 @@ use aliased 'perfSONAR_PS::PINGERTOPO_DATATYPES::v2_0::nmwg::Topology::Domain::N
 use aliased 'perfSONAR_PS::PINGERTOPO_DATATYPES::v2_0::nmwg::Topology::Domain::Node::Parameters::Parameter';
 use aliased 'perfSONAR_PS::PINGERTOPO_DATATYPES::v2_0::nmtl3::Topology::Domain::Node::Port';
 
-use OWP::Conf;
+use perfSONAR_PS::Config::OWP::Conf;
 
 use perfSONAR_PS::NPToolkit::ConfigManager::Utils qw( save_file restart_service stop_service );
 use perfSONAR_PS::Utils::DNS qw( reverse_dns resolve_address );
@@ -1427,7 +1427,7 @@ sub parse_owmesh_conf {
         # We can't specify the file directly with pSB currently.
         my $confdir = dirname( $parameters->{file} );
 
-        my $conf = OWP::Conf->new( CONFDIR => $confdir );
+        my $conf = perfSONAR_PS::Config::OWP::Conf->new( CONFDIR => $confdir );
 
         my %owmesh_config_opts = ();
 
@@ -1841,8 +1841,7 @@ sub generate_owmesh_conf {
             # since some control planes may use private addresses. It does require the CF to do
             # create the right /etc/hosts entries (Emulab does).
             #
-            my $localname = hostname;
-            $localname =~ s/^[^\.]+//;
+            my ( $localname ) = split( /\./, hostname );
             
             my $packed_ip = gethostbyname( $localname );
             if (defined $packed_ip) {
