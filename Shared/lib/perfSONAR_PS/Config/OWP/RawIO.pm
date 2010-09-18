@@ -1,4 +1,4 @@
-package OWP::RawIO;
+package perfSONAR_PS::Config::OWP::RawIO;
 
 use strict;
 use warnings;

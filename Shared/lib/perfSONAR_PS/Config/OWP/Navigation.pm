@@ -9,7 +9,7 @@
 #									#
 #########################################################################
 #
-#	File:		perfSONAR_PS::Config::OWP::Navigation.pm
+#	File:		perfSONAR_PS::Config::perfSONAR_PS::Config::OWP::Navigation.pm
 #
 #	Author:	Ali Asad Lotia
 #			Internet2
@@ -19,7 +19,7 @@
 #	Description: Various functions to provide navigation tables in web pages
 
 # this framework shamelessly ripped off from Jeff and Anatoly's modules in OWP
-package perfSONAR_PS::Config::OWP::Navigation;
+package perfSONAR_PS::Config::perfSONAR_PS::Config::OWP::Navigation;
 require 5.005;
 require Exporter;
 use strict;
@@ -124,7 +124,7 @@ sub timeselect {
 	# it has carried over almost all code from jeff's tselect.cgi
     
     # use the utilities in the OWP bundle
-    use perfSONAR_PS::Config::OWP::Utils;
+    use perfSONAR_PS::Config::perfSONAR_PS::Config::OWP::Utils;
     # get passed arguments
 	my ($q,$duration) = @_;						
         	# define variables to hold year, and month values

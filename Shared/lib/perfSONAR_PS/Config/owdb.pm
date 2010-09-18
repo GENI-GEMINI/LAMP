@@ -22,8 +22,8 @@ use FindBin;
 use POSIX;
 use Fcntl qw(:flock);
 use FileHandle;
-use OWP;
-use OWP::Utils;
+use perfSONAR_PS::Config::OWP;
+use perfSONAR_PS::Config::OWP::Utils;
 use Math::Int64 qw(uint64);
 use vars qw(@ISA @EXPORT $VERSION);
 use CGI::Carp qw(fatalsToBrowser warningsToBrowser);
@@ -33,7 +33,7 @@ use File::Basename;
 @ISA    = qw(Exporter);
 @EXPORT = qw(owdb_prep owdb_fetch owdb_worst_case owdb_plot_script bwdb_plot_script bwdb_dist_plot_script ntpdb_peer_plot_script ntpdb_loop_plot_script ntpdb_color_per_peer_plot_script trdb_plot_script trcir_plot_script);
 
-$OWP::REVISION = '$Id: owdb.pm 3831 2010-01-15 21:02:23Z alake $';
+$perfSONAR_PS::Config::OWP::REVISION = '$Id: owdb.pm 3831 2010-01-15 21:02:23Z alake $';
 $VERSION       = '1.0';
 
 #
@@ -2335,7 +2335,7 @@ __END__
 =head1 SEE ALSO
 
 L<Exporter>, L<FindBin>, L<POSIX>, L<Fcntl>, L<FileHandle>, L<OWP>,
-L<OWP::Utils>, L<CGI::Carp>, L<File::Basename>
+L<perfSONAR_PS::Config::OWP::Utils>, L<CGI::Carp>, L<File::Basename>
 
 To join the 'perfSONAR Users' mailing list, please visit:
 

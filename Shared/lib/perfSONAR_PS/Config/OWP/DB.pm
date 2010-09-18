@@ -1,4 +1,4 @@
-package OWP::DB;
+package perfSONAR_PS::Config::OWP::DB;
 
 use strict;
 use warnings;
@@ -17,9 +17,9 @@ DB utility functions
 
 require Exporter;
 use vars qw(@ISA @EXPORT $VERSION);
-use OWP;
-use OWP::Helper;
-use OWP::Utils;
+use perfSONAR_PS::Config::OWP;
+use perfSONAR_PS::Config::OWP::Helper;
+use perfSONAR_PS::Config::OWP::Utils;
 use Carp qw(cluck);
 use DBI;
 use Term::ReadKey;
@@ -204,7 +204,7 @@ __END__
 
 =head1 SEE ALSO
 
-L<OWP>, L<OWP::Helper>, L<OWP::Utils>, L<Carp>, L<DBI>, L<Term::ReadKey>
+L<OWP>, L<perfSONAR_PS::Config::OWP::Helper>, L<perfSONAR_PS::Config::OWP::Utils>, L<Carp>, L<DBI>, L<Term::ReadKey>
 
 To join the 'perfSONAR Users' mailing list, please visit:
 

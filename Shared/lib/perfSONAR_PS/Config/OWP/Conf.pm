@@ -1,4 +1,4 @@
-package OWP::Conf;
+package perfSONAR_PS::Config::OWP::Conf;
 
 use strict;
 use warnings;
@@ -18,7 +18,7 @@ the new parameter is an array then add it to the ARRS hash.
 
 =head1 SYNOPSIS
 
-  my $conf = new OWP::Conf([
+  my $conf = new perfSONAR_PS::Config::OWP::Conf([
       NODE	  =>  nodename,
 	  CONFDIR =>  path/to/confdir,
   ])
@@ -45,7 +45,7 @@ require 5.005;
 
 # use POSIX;
 use FindBin;
-use OWP::Helper;
+use perfSONAR_PS::Config::OWP::Helper;
 
 $Conf::REVISION = '$Id: Conf.pm 2969 2009-07-15 14:40:14Z zurawski $';
 $Conf::VERSION  = '1.0';
@@ -705,7 +705,7 @@ __END__
 
 =head1 SEE ALSO
 
-L<POSIX>, L<FindBin>, L<OWP::Helper>
+L<POSIX>, L<FindBin>, L<perfSONAR_PS::Config::OWP::Helper>
 
 To join the 'perfSONAR Users' mailing list, please visit:
 

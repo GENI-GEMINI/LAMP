@@ -1,4 +1,4 @@
-package OWP::Syslog;
+package perfSONAR_PS::Config::OWP::Syslog;
 
 use strict;
 use warnings;
@@ -77,7 +77,7 @@ __DIE__ and __WARN__. (The args to HandleDieWarn are a list of fh's to
 optionally send the message to as well as syslog. If you send the "tied"
 fh, you will see the message in syslog twice, so don't do that.)
 
-  my $x = tie *MYLOG, 'OWP::Syslog', priority => 'debug';
+  my $x = tie *MYLOG, 'perfSONAR_PS::Config::OWP::Syslog', priority => 'debug';
   $x->HandleDieWarn(*STDERR);		## set __DIE__,__WARN__ handler
   					## can undef $x anytime after this...
 					## arg is filehandle from "tie"
@@ -95,7 +95,7 @@ fh, you will see the message in syslog twice, so don't do that.)
 
 =head1 SYNOPSIS
 
-  use OWP::Syslog;
+  use perfSONAR_PS::Config::OWP::Syslog;
 
   ###
   ##  Pass up to five args:

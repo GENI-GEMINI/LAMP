@@ -1220,7 +1220,7 @@ use base 'perfSONAR_PS::ServiceWatcher::Base';
 sub init {
     my ( $self, %conf ) = @_;
 
-    $self->{SERVICE_NAME} = "gmond";
+    $self->{SERVICE_NAME} = "ganglia_gmond";
 
     $self->SUPER::init( %conf );
 
@@ -1247,7 +1247,7 @@ use base 'perfSONAR_PS::ServiceWatcher::Base';
 sub init {
     my ( $self, %conf ) = @_;
 
-    $self->{SERVICE_NAME} = "gmetad";
+    $self->{SERVICE_NAME} = "ganglia_gmetad";
 
     $self->SUPER::init( %conf );
 

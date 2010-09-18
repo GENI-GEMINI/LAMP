@@ -1,4 +1,4 @@
-package OWP;
+package perfSONAR_PS::Config::OWP;
 
 use strict;
 use warnings;
@@ -23,9 +23,9 @@ use POSIX;
 use Fcntl qw(:flock);
 use FileHandle;
 use vars qw(@ISA @EXPORT $VERSION);
-use OWP::Helper;
-use OWP::Conf;
-use OWP::Utils;
+use perfSONAR_PS::Config::OWP::Helper;
+use perfSONAR_PS::Config::OWP::Conf;
+use perfSONAR_PS::Config::OWP::Utils;
 
 @ISA    = qw(Exporter);
 @EXPORT = qw(daemonize setids);

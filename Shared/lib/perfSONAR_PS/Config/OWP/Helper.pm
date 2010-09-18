@@ -1,4 +1,4 @@
-package OWP::Helper;
+package perfSONAR_PS::Config::OWP::Helper;
 
 use strict;
 use warnings;
@@ -21,7 +21,7 @@ use vars qw(@ISA @EXPORT $VERSION);
 @ISA    = qw(Exporter);
 @EXPORT = qw(owpverify_args print_hash split_addr);
 
-$OWP::REVISION = '$Id: Helper.pm 2969 2009-07-15 14:40:14Z zurawski $';
+$perfSONAR_PS::Config::OWP::REVISION = '$Id: Helper.pm 2969 2009-07-15 14:40:14Z zurawski $';
 $VERSION       = '1.0';
 
 sub owpverify_args {

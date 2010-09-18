@@ -1,4 +1,4 @@
-package OWP::Sum;
+package perfSONAR_PS::Config::OWP::Sum;
 
 use strict;
 use warnings;
@@ -100,7 +100,7 @@ sub parsesum {
     }
 
     if ( !defined( $$rref{'SUMMARY'} ) ) {
-        warn "OWP::Sum::parsesum(): Invalid Summary";
+        warn "perfSONAR_PS::Config::OWP::Sum::parsesum(): Invalid Summary";
         return undef;
     }
 

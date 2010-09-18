@@ -1,4 +1,4 @@
-package OWP::Archive;
+package perfSONAR_PS::Config::OWP::Archive;
 
 use strict;
 use warnings;
@@ -16,8 +16,8 @@ Utilities that manage the archived data from perfSONAR-BUOY.
 =cut
 
 require 5.005;
-use OWP;
-use OWP::Utils;
+use perfSONAR_PS::Config::OWP;
+use perfSONAR_PS::Config::OWP::Utils;
 use File::Path;
 use Math::Int64 qw(uint64);
 use DBI;
@@ -125,7 +125,7 @@ sub rm {
         push @files, @row;
     }
     if ( @files != 1 ) {
-        warn "OWP::Archive::rm called on non-existant session";
+        warn "perfSONAR_PS::Config::OWP::Archive::rm called on non-existant session";
         return 0;
     }
 
@@ -204,7 +204,7 @@ __END__
 
 =head1 SEE ALSO
 
-L<OWP>, L<OWP::Utils>, L<File::Path>, L<DBI>
+L<OWP>, L<perfSONAR_PS::Config::OWP::Utils>, L<File::Path>, L<DBI>
 
 To join the 'perfSONAR Users' mailing list, please visit:
 

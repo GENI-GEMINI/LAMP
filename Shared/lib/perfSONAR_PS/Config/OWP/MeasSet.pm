@@ -1,4 +1,4 @@
-package OWP::MeasSet;
+package perfSONAR_PS::Config::OWP::MeasSet;
 
 use strict;
 use warnings;
@@ -20,7 +20,7 @@ is an array then add it to the ARRS hash.
 
 =head1 SYNOPSIS
 
-  my $conf = new OWP::Conf([
+  my $conf = new perfSONAR_PS::Config::OWP::Conf([
       NODE	  =>  nodename,
 	  CONFDIR =>  path/to/confdir,
   ])
@@ -48,8 +48,8 @@ use strict;
 
 # use POSIX;
 use FindBin;
-use OWP::Conf;
-use OWP::Helper;
+use perfSONAR_PS::Config::OWP::Conf;
+use perfSONAR_PS::Config::OWP::Helper;
 
 $MeasSet::REVISION = '$Id: MeasSet.pm 3010 2009-07-20 13:11:27Z zurawski $';
 $MeasSet::VERSION  = '1.0';
@@ -323,7 +323,7 @@ __END__
 
 =head1 SEE ALSO
 
-L<POSIX>, L<FindBin>, L<OWP::Conf>, L<OWP::Helper>
+L<POSIX>, L<FindBin>, L<perfSONAR_PS::Config::OWP::Conf>, L<perfSONAR_PS::Config::OWP::Helper>
 
 To join the 'perfSONAR Users' mailing list, please visit:
 

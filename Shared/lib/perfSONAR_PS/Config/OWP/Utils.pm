@@ -1,4 +1,4 @@
-package OWP::Utils;
+package perfSONAR_PS::Config::OWP::Utils;
 
 use strict;
 use warnings;
