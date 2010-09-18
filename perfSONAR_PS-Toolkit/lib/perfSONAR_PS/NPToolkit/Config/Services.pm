@@ -266,6 +266,7 @@ sub reset_state {
         $service_desc{service_name}              = $service->{service_name};
         $service_desc{enabled}                   = $service->{enabled};
         $service_desc{enabled_services_variable} = $service->{enabled_services_variable};
+        $service_desc{dependencies}              = $service->{dependencies} if exists $service->{dependencies};
 
         $new_services_list{ $service->{name} } = \%service_desc;
     }
@@ -314,6 +315,7 @@ sub clear_state {
         $service_desc{service_name}              = $service->{service_name};
         $service_desc{enabled}                   = $service->{enabled};
         $service_desc{enabled_services_variable} = $service->{enabled_services_variable};
+        $service_desc{dependencies}              = $service->{dependencies} if exists $service->{dependencies};
 
         $new_services_list{ $service->{name} } = \%service_desc;
     }
