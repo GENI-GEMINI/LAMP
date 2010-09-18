@@ -90,7 +90,12 @@ my $ma = new perfSONAR_PS::Client::MA( { instance => $service } );
 my $subject;
 my @eventTypes = ();
 push @eventTypes, $eventType;
-if ( $eventType eq "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" ) {
+if ( $eventType eq "http://ggf.org/ns/nmwg/tools/ganglia/2.0" ) {
+    $subject  = "    <ganglia:subject xmlns:ganglia=\"http://ggf.org/ns/nmwg/tools/ganglia/2.0/\" id=\"s\">\n";
+    $subject .= "      <nmwgt3:node xmlns:nmwgt3=\"http://ggf.org/ns/nmwg/topology/base/3.0/\" />\n";
+    $subject .= "    </ganglia:subject>\n";
+}
+elsif ( $eventType eq "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" ) {
     $subject = "    <netutil:subject xmlns:netutil=\"http://ggf.org/ns/nmwg/characteristic/utilization/2.0/\" id=\"s\">\n";
     $subject .= "      <nmwgt:interface xmlns:nmwgt=\"http://ggf.org/ns/nmwg/topology/2.0/\" />\n";
     $subject .= "    </netutil:subject>\n";

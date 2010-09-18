@@ -922,6 +922,7 @@ sub handleEvent {
             data              => 1,
             rawRequest        => 1,
             doOutputMetadata  => 1,
+            credentials       => 0,
         }
     );
     my $msg = perfSONAR_PS::Utils::NetLogger::format( "org.perfSONAR.Services.MA.handleEvent.start", { messageType => $parameters->{messageType}, } );
