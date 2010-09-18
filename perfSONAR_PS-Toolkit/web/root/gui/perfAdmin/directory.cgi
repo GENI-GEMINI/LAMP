@@ -21,7 +21,8 @@ use CGI;
 use Log::Log4perl qw(get_logger :easy :levels);
 use Config::General;
  
- use perfSONAR_PS::NPToolkit::Config::RegisteredServices;
+use perfSONAR_PS::Topology::ID qw(idRemoveLevel);
+use perfSONAR_PS::NPToolkit::Config::RegisteredServices;
  
 use FindBin qw($RealBin);
 my $basedir = "$RealBin/";
@@ -57,10 +58,10 @@ if ( $conf{debug} ) {
     $logger->level( $DEBUG );
 }
 
+my $domain_id = idRemoveLevel( $conf{node_id} );
+
 my $registered_services = perfSONAR_PS::NPToolkit::Config::RegisteredServices->new();
-# TODO: Load this from node.info
-$registered_services->init( { unis_instance => "https://127.0.0.1:8012/perfSONAR_PS/services/unis", 
-                              domain_id => "urn:ogf:network:domain=emulab.net+slice+lampdemo" } );
+$registered_services->init( { unis_instance => $conf{unis_instance}, domain_id => $domain_id } );
 
 print $CGI->header();
 

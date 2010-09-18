@@ -46,7 +46,7 @@ if ( $conf{debug} ) {
 
 my $psconf = perfSONAR_PS::NPToolkit::Config::pSConfig->new();
 # TODO: Load this from node.info
-$psconf->init( { unis_instance => "https://127.0.0.1:8012/perfSONAR_PS/services/unis" } );
+$psconf->init( { unis_instance => $conf{unis_instance} } );
 
 my $administrative_info_conf = perfSONAR_PS::NPToolkit::Config::AdministrativeInfo->new();
 $administrative_info_conf->init( { administrative_info_file => $conf{administrative_info_file} } );

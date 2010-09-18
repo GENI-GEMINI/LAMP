@@ -59,8 +59,7 @@ if ( $conf{debug} ) {
 $logger->info( "templates dir: $conf{template_directory}" );
 
 my $services_conf = perfSONAR_PS::NPToolkit::Config::Services->new();
-# TODO: Load this from node.info
-$services_conf->init( { unis_instance => "https://127.0.0.1:8012/perfSONAR_PS/services/unis" } );
+$services_conf->init( { unis_instance => $conf{unis_instance} } );
 
 my $cgi = CGI->new();
 our $session;
