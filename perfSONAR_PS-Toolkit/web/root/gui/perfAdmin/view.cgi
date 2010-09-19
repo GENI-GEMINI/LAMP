@@ -24,11 +24,14 @@ use FindBin qw($RealBin);
 my $basedir = "$RealBin/";
 use lib "$RealBin/../../../../lib";
 
+use perfSONAR_PS::Utils::GENIPolicy qw( verify_cgi );
 use perfSONAR_PS::Common qw( unescapeString escapeString find extract );
 use perfSONAR_PS::Client::LS;
 
 my $cgi    = new CGI;
 my $parser = XML::LibXML->new();
+
+verify_cgi();
 
 croak "hLS instance not provided unless " unless $cgi->param( 'hls' );
 

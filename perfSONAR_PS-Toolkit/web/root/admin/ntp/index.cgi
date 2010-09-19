@@ -19,6 +19,7 @@ my $basedir = "$RealBin/";
 
 use lib "$RealBin/../../../../lib";
 
+use perfSONAR_PS::Utils::GENIPolicy qw( verify_cgi );
 use perfSONAR_PS::NPToolkit::Config::NTP;
 use perfSONAR_PS::NPToolkit::Config::pSConfig;
 use perfSONAR_PS::NPToolkit::Config::Handlers::NTP;
@@ -62,6 +63,8 @@ my $psconfig = perfSONAR_PS::NPToolkit::Config::pSConfig->new();
 $psconfig->init( { unis_instance => $conf{unis_instance} } );
 
 my $cgi = CGI->new();
+verify_cgi();
+
 our $session;
 
 if ( $cgi->param( "session_id" ) ) {

@@ -19,6 +19,7 @@ my $basedir = "$RealBin/";
 
 use lib "$RealBin/../../../../lib";
 
+use perfSONAR_PS::Utils::GENIPolicy qw( verify_cgi );
 use perfSONAR_PS::NPToolkit::Config::pSConfig;
 
 my $config_file = $basedir . '/etc/web_admin.conf';
@@ -50,6 +51,7 @@ if ( $conf{debug} ) {
 }
 
 my $cgi = CGI->new();
+verify_cgi();
 
 my $function = $cgi->param("fname");
 unless ($function) {

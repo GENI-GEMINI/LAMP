@@ -31,6 +31,7 @@ use FindBin qw($RealBin);
 my $basedir = "$RealBin/";
 use lib "$RealBin/../../../../lib";
 
+use perfSONAR_PS::Utils::GENIPolicy qw( verify_cgi );
 use perfSONAR_PS::Client::MA;
 use perfSONAR_PS::Common qw( extract find );
 use perfSONAR_PS::Utils::ParameterValidation;
@@ -62,6 +63,8 @@ if ( $conf{debug} ) {
 }
 
 my $cgi      = CGI->new();
+verify_cgi();
+
 print $cgi->header();
 
 my $service;
@@ -92,8 +95,10 @@ my @eventTypes = ();
 push @eventTypes, $eventType;
 if ( $eventType eq "http://ggf.org/ns/nmwg/tools/ganglia/2.0" ) {
     $subject  = "    <ganglia:subject xmlns:ganglia=\"http://ggf.org/ns/nmwg/tools/ganglia/2.0/\" id=\"s\">\n";
-    $subject .= "      <nmwgt3:node xmlns:nmwgt3=\"http://ggf.org/ns/nmwg/topology/base/3.0/\" />\n";
+    #$subject .= "      <nmwgt3:node xmlns:nmwgt3=\"http://ggf.org/ns/nmwg/topology/base/3.0/\" />\n";
+    $subject .= "      <nmwgt:interface xmlns:nmwgt=\"http://ggf.org/ns/nmwg/topology/2.0/\" />\n";
     $subject .= "    </ganglia:subject>\n";
+    pop @eventTypes;
 }
 elsif ( $eventType eq "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" ) {
     $subject = "    <netutil:subject xmlns:netutil=\"http://ggf.org/ns/nmwg/characteristic/utilization/2.0/\" id=\"s\">\n";
@@ -155,7 +160,7 @@ if ( $et eq "error.ma.storage" ) {
     exit( 1 );
 }
 else {
-    if ( $eventType eq "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" ) {
+    if ( $eventType eq "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" or $eventType eq "http://ggf.org/ns/nmwg/tools/ganglia/2.0" ) {
         my %lookup = ();
         foreach my $d ( @{ $result->{"data"} } ) {
             my $data = q{};

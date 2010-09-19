@@ -30,6 +30,7 @@ use FindBin qw($RealBin);
 my $basedir = "$RealBin/";
 use lib "$RealBin/../../../../lib";
 
+use perfSONAR_PS::Utils::GENIPolicy qw( verify_cgi );
 use perfSONAR_PS::Client::PingER;
 use perfSONAR_PS::Common qw( extract find );
 
@@ -56,6 +57,8 @@ if ( $conf{debug} ) {
 }
 
 my $cgi = new CGI;
+verify_cgi();
+
 print "Content-type: text/html\n\n";
 if ( $cgi->param( 'key' ) and $cgi->param( 'url' ) ) {
     my $sec = time;

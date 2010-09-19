@@ -22,6 +22,7 @@ my $basedir = "$RealBin/";
 use lib "$RealBin/../../../../lib";
 use lib "/usr/local/perfSONAR-PS/perfSONAR_PS-PingER/lib";
 
+use perfSONAR_PS::Utils::GENIPolicy qw( verify_cgi );
 use perfSONAR_PS::Utils::DNS qw( reverse_dns resolve_address reverse_dns_multi resolve_address_multi );
 use perfSONAR_PS::Client::gLS::Keywords;
 use perfSONAR_PS::Client::Parallel::gLS;
@@ -67,6 +68,8 @@ if ( $conf{debug} ) {
 $logger->info( "templates dir: $conf{template_directory}" );
 
 my $cgi = CGI->new();
+verify_cgi();
+
 our $session;
 
 if ( $cgi->param( "session_id" ) ) {

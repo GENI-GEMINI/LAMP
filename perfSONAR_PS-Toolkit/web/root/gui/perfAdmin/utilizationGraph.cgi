@@ -29,6 +29,7 @@ use FindBin qw($RealBin);
 my $basedir = "$RealBin/";
 use lib "$RealBin/../../../../lib";
 
+use perfSONAR_PS::Utils::GENIPolicy qw( verify_cgi );
 use perfSONAR_PS::Client::MA;
 use perfSONAR_PS::Common qw( extract find );
 use perfSONAR_PS::Utils::ParameterValidation;
@@ -56,6 +57,8 @@ if ( $conf{debug} ) {
 }
 
 my $cgi = new CGI;
+verify_cgi();
+
 print "Content-type: text/html\n\n";
 
 if ( ( $cgi->param( 'key1_type' ) or $cgi->param( 'key2_type' ) ) and $cgi->param( 'url' ) ) {

@@ -18,6 +18,7 @@ my $basedir = "$RealBin/";
 
 use lib "$RealBin/../../../../lib";
 
+use perfSONAR_PS::Utils::GENIPolicy qw( verify_cgi );
 use perfSONAR_PS::NPToolkit::Config::AdministrativeInfo;
 use perfSONAR_PS::Client::gLS::Keywords;
 
@@ -50,6 +51,8 @@ if ( $conf{debug} ) {
 }
 
 my $cgi = CGI->new();
+verify_cgi();
+
 our $session;
 
 if ( $cgi->param( "session_id" ) ) {

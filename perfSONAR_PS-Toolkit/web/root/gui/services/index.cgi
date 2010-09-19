@@ -16,6 +16,7 @@ my $basedir = "$RealBin/";
 
 use lib "$RealBin/../../../../lib";
 
+use perfSONAR_PS::Utils::GENIPolicy qw( verify_cgi );
 use perfSONAR_PS::NPToolkit::Config::AdministrativeInfo;
 use perfSONAR_PS::NPToolkit::Config::pSConfig;
 
@@ -45,7 +46,6 @@ if ( $conf{debug} ) {
 }
 
 my $psconf = perfSONAR_PS::NPToolkit::Config::pSConfig->new();
-# TODO: Load this from node.info
 $psconf->init( { unis_instance => $conf{unis_instance} } );
 
 my $administrative_info_conf = perfSONAR_PS::NPToolkit::Config::AdministrativeInfo->new();
@@ -58,6 +58,7 @@ my $html;
 my %vars = ();
 
 my $cgi = CGI->new();
+verify_cgi();
 
 my $function = $cgi->param("fname");
 unless ( $function ) {

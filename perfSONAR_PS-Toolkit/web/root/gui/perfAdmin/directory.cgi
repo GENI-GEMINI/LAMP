@@ -26,10 +26,12 @@ use FindBin qw($RealBin);
 my $basedir = "$RealBin/";
 use lib "$RealBin/../../../../lib";
 
+use perfSONAR_PS::Utils::GENIPolicy qw( verify_cgi );
 use perfSONAR_PS::Topology::ID qw(idRemoveLevel);
 use perfSONAR_PS::NPToolkit::Config::RegisteredServices;
 
 my $CGI      = CGI->new();
+verify_cgi();
 
 my $config_file = $basedir . '/etc/web_admin.conf';
 my $conf_obj = Config::General->new( -ConfigFile => $config_file );
