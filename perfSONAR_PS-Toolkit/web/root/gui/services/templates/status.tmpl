@@ -40,14 +40,7 @@ function handle_pushpull_response(response, io_args) {
         dojo.byId('web_admin_error').innerHTML=response['error'];
         dojo.byId('web_admin_status').innerHTML="";
     } else if (response['message']) {
-        dojo.byId('web_admin_error').innerHTML="";
-        dojo.byId('web_admin_status').innerHTML=response['message'];
-        
-        dojo.byId('last_pull').innerHTML="The configuration was last pulled on: " + response['last_pull_date'];
-        dojo.byId('last_mod').innerHTML="The configuration was last modified on: " + response['last_modified_date'];
-        
-        dojo.byId('must_push').style({ display:"none" });
-        dojo.byId('must_push2').style({ display:"none" });
+        window.location.reload()
     } else {
         dojo.byId('web_admin_error').innerHTML="Received unknown response from service";
     }
@@ -82,15 +75,16 @@ function handle_pushpull_response(response, io_args) {
 </p>
 	<table class="basic_table">
 		<tr><th style="width: 400px" colspan=2>Software Versions</th></tr>
-		<tr><td><a rel="external" target="_blank" href="http://psps.perfsonar.net/toolkit/">pS-Performance Toolkit</a></td><td>[% toolkit_version %]</td></tr>
-		<tr><td><a rel="external" target="_blank" href="http://www.internet2.edu/performance/pS-PS/index.html">perfSONAR-PS Lookup Service</a></td><td>3.1</td></tr>
-		<tr><td><a rel="external" target="_blank" href="http://www.internet2.edu/performance/pS-PS/index.html">perfSONAR-PS PingER MA/MP</a></td><td>3.1</td></tr>
-		<tr><td><a rel="external" target="_blank" href="http://www.internet2.edu/performance/pS-PS/index.html">perfSONAR-PS perfSONAR-BUOY</a></td><td>3.1</td></tr>
-		<tr><td><a rel="external" target="_blank" href="http://www.internet2.edu/performance/pS-PS/index.html">perfSONAR-PS SNMP MA</a></td><td>3.1</td></tr>
+		<tr><td><a rel="external" target="_blank" href="http://groups.geni.net/geni/wiki/LAMP">LAMP Portal</a></td><td>1.0rc1</td></tr>
+		<tr><td><a rel="external" target="_blank" href="http://psps.perfsonar.net/toolkit/">(Based on pS-Performance Toolkit)</a></td><td>3.2</td></tr>
+		<tr><td><a rel="external" target="_blank" href="http://www.internet2.edu/performance/pS-PS/index.html">perfSONAR-PS pSConfig</a></td><td>1.0rc1</td></tr>
+		<tr><td><a rel="external" target="_blank" href="http://www.internet2.edu/performance/pS-PS/index.html">perfSONAR-PS PingER MA/MP</a></td><td>3.2lamp</td></tr>
+		<tr><td><a rel="external" target="_blank" href="http://www.internet2.edu/performance/pS-PS/index.html">perfSONAR-PS perfSONAR-BUOY</a></td><td>3.2lamp</td></tr>
+		<tr><td><a rel="external" target="_blank" href="http://www.internet2.edu/performance/pS-PS/index.html">perfSONAR-PS SNMP MA</a></td><td>3.2lamp</td></tr>
 		<tr><td><a rel="external" target="_blank" href="http://www.internet2.edu/performance/bwctl/">BWCTL</a></td><td>1.3</td></tr>
 		<tr><td><a rel="external" target="_blank" href="http://www.internet2.edu/performance/owamp/">OWAMP</a></td><td>3.2rc2</td></tr>
+		<tr><td><a rel="external" target="_blank" href="http://ganglia.sourceforge.net/">Ganglia</a></td><td>trunk20100907</td></tr>
 	</table>
-
 </div>
 </div>
 </div>

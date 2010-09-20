@@ -94,7 +94,7 @@ use constant METRICS => {
     },
     "http://ggf.org/ns/nmwg/characteristic/cpu/utilization/nice/2.0" => {
             name => "cpu_nice",
-            description => "Percentage of CPU utilization that occurred while executing at the user level with nice priority",
+            description => "Percentage of CPU utilization at user level with nice priority",
             type        => "percentage",
     },
     "http://ggf.org/ns/nmwg/characteristic/cpu/speed/2.0" => {
@@ -104,17 +104,17 @@ use constant METRICS => {
     },
     "http://ggf.org/ns/nmwg/characteristic/cpu/time/iowait/2.0" => {
             name => "cpu_wio",
-            description => "Percentage of time that the CPU or CPUs were idle during which the system had an outstanding disk I/O request",
+            description => "Percentage of CPU idle time with outstanding disk I/O requests",
             type        => "percentage",
     },
     "http://ggf.org/ns/nmwg/characteristic/cpu/utilization/user/2.0" => {
             name => "cpu_user",
-            description => "Percentage of CPU utilization that occurred while executing at the user level",
+            description => "Percentage of CPU utilization at user level",
             type        => "percentage",
     },
     "http://ggf.org/ns/nmwg/characteristic/cpu/time/idle/2.0" => {
             name => "cpu_idle",
-            description => "Percentage of time that the CPU or CPUs were idle and the system did not have an outstanding disk I/O request",
+            description => "Percentage of CPU idle time without outstanding disk I/O requests",
             type        => "percentage",
     },
     "http://ggf.org/ns/nmwg/characteristic/cpu/count/2.0" => {
@@ -124,7 +124,7 @@ use constant METRICS => {
     },
     "http://ggf.org/ns/nmwg/characteristic/cpu/utilization/system/2.0" => {
             name => "cpu_system",
-            description => "Percentage of CPU utilization that occurred while executing at the system level",
+            description => "Percentage of CPU utilization at system level",
             type        => "percentage",
     },
     "http://ggf.org/ns/nmwg/characteristic/cpu/time/aidle/2.0" => {

@@ -187,19 +187,77 @@ sub do_ganglia {
             $list{$metric_et}->{subjects} = ();
         }
         
-        #$list{$metric_et}->{subjects}{$host} = () unless $list{$metric_et}->{subjects}{$host}; 
-        
-        if ( $metric->{name} =~ m/.*_out$/ ) {
-            $list{$metric_et}->{subjects}{$host}->{"key2_1"}    = $lookup{$metadataId}{"key1"};
-            $list{$metric_et}->{subjects}{$host}->{"key2_2"}    = $lookup{$metadataId}{"key2"};
-            $list{$metric_et}->{subjects}{$host}->{"key2_type"} = $lookup{$metadataId}{"type"};
-        } else {
-            $list{$metric_et}->{subjects}{$host}->{"key1_1"}    = $lookup{$metadataId}{"key1"};
-            $list{$metric_et}->{subjects}{$host}->{"key1_2"}    = $lookup{$metadataId}{"key2"};
-            $list{$metric_et}->{subjects}{$host}->{"key1_type"} = $lookup{$metadataId}{"type"};
-        }
+        $list{$metric_et}->{subjects}{$host}->{"key1_1"}    = $lookup{$metadataId}{"key1"};
+        $list{$metric_et}->{subjects}{$host}->{"key1_2"}    = $lookup{$metadataId}{"key2"};
+        $list{$metric_et}->{subjects}{$host}->{"key1_type"} = $lookup{$metadataId}{"type"};
     }
-
+    
+    # Handle special case for sent/received pairs
+    # TODO: better way to handle these
+    my $bytes_both = "http://ggf.org/ns/nmwg/characteristic/network/utilization/bytes/2.0";
+    my $bytes_recv = "http://ggf.org/ns/nmwg/characteristic/network/utilization/bytes/received/2.0";
+    my $bytes_sent = "http://ggf.org/ns/nmwg/characteristic/network/utilization/bytes/sent/2.0";
+    
+    if ( exists $list{$bytes_recv} and exists $list{$bytes_sent} ) {
+        foreach my $host ( sort keys %{ $list{$bytes_recv}->{subjects} } ) {
+            next unless $list{$bytes_sent}->{subjects}{$host};
+            
+            my %metric_info = (
+                key1_type  => $list{$bytes_recv}->{subjects}{$host}->{"key1_type"},
+                key1_1     => $list{$bytes_recv}->{subjects}{$host}->{"key1_1"},
+                key1_2     => $list{$bytes_recv}->{subjects}{$host}->{"key1_2"},
+                key2_type  => $list{$bytes_sent}->{subjects}{$host}->{"key1_type"},
+                key2_1     => $list{$bytes_sent}->{subjects}{$host}->{"key1_1"},
+                key2_2     => $list{$bytes_sent}->{subjects}{$host}->{"key1_2"},
+            );
+            
+            unless ( exists $list{$bytes_both} ) {
+                $list{$bytes_both} = perfSONAR_PS::DB::Ganglia->getMetric( $bytes_both );
+                $list{$bytes_both}->{subjects} = ();
+            }
+        
+            $list{$bytes_both}->{subjects}{$host} = \%metric_info;
+            
+            delete $list{$bytes_recv}->{subjects}{$host};
+            delete $list{$bytes_sent}->{subjects}{$host};
+        }
+        
+        delete $list{$bytes_recv} unless keys %{ $list{$bytes_recv}->{subjects} };
+        delete $list{$bytes_sent} unless keys %{ $list{$bytes_sent}->{subjects} };
+    }
+    
+    my $packets_both = "http://ggf.org/ns/nmwg/characteristic/network/utilization/packets/2.0";
+    my $packets_recv = "http://ggf.org/ns/nmwg/characteristic/network/utilization/packets/received/2.0";
+    my $packets_sent = "http://ggf.org/ns/nmwg/characteristic/network/utilization/packets/sent/2.0";
+    
+    if ( exists $list{$packets_recv} and exists $list{$packets_sent} ) {
+        foreach my $host ( sort keys %{ $list{$packets_recv}->{subjects} } ) {
+            next unless $list{$packets_sent}->{subjects}{$host};
+            
+            my %metric_info = (
+                key1_type  => $list{$packets_recv}->{subjects}{$host}->{"key1_type"},
+                key1_1     => $list{$packets_recv}->{subjects}{$host}->{"key1_1"},
+                key1_2     => $list{$packets_recv}->{subjects}{$host}->{"key1_2"},
+                key2_type  => $list{$packets_sent}->{subjects}{$host}->{"key1_type"},
+                key2_1     => $list{$packets_sent}->{subjects}{$host}->{"key1_1"},
+                key2_2     => $list{$packets_sent}->{subjects}{$host}->{"key1_2"},
+            );
+            
+            unless ( exists $list{$packets_both} ) {
+                $list{$packets_both} = perfSONAR_PS::DB::Ganglia->getMetric( $packets_both );
+                $list{$packets_both}->{subjects} = ();
+            }
+        
+            $list{$packets_both}->{subjects}{$host} = \%metric_info;
+            
+            delete $list{$packets_recv}->{subjects}{$host};
+            delete $list{$packets_sent}->{subjects}{$host};
+        }
+        
+        delete $list{$packets_recv} unless keys %{ $list{$packets_recv}->{subjects} };
+        delete $list{$packets_sent} unless keys %{ $list{$packets_sent}->{subjects} };
+    }
+    
     foreach my $metric_et ( sort keys %list ) {
         
         my @subjects = ();

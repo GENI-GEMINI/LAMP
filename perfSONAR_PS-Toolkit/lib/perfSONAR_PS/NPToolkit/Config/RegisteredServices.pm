@@ -94,6 +94,7 @@ my %eT_file_map = (
 my %serviceMap = (
     "list.snmpma" => {
         "EVENTTYPE" => [
+            "http://ggf.org/ns/nmwg/tools/ganglia/2.0",
             "http://ggf.org/ns/nmwg/characteristic/utilization/2.0",
             "http://ggf.org/ns/nmwg/tools/snmp/2.0"
         ],
