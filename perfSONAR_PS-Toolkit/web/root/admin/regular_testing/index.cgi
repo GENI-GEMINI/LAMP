@@ -68,7 +68,7 @@ if ( $conf{debug} ) {
 $logger->info( "templates dir: $conf{template_directory}" );
 
 my $cgi = CGI->new();
-verify_cgi();
+verify_cgi( \%conf );
 
 our $session;
 

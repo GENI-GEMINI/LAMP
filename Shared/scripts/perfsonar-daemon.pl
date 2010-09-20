@@ -227,7 +227,9 @@ if ( $SSLFLAG ) {
         close( VALIDPEERS ) or die $!;
     } 
     else {
-        $valid_peers{'*'} = 1;
+        # Be conservative and die.
+        print "Error: Not able to find the valid_peers file at $VALID_PEERS_FILE.\n";
+        exit( -1 );
     }
 }
 

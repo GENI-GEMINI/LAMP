@@ -30,12 +30,12 @@ use perfSONAR_PS::Utils::GENIPolicy qw( verify_cgi );
 use perfSONAR_PS::Topology::ID qw(idRemoveLevel);
 use perfSONAR_PS::NPToolkit::Config::RegisteredServices;
 
-my $CGI      = CGI->new();
-verify_cgi();
-
 my $config_file = $basedir . '/etc/web_admin.conf';
 my $conf_obj = Config::General->new( -ConfigFile => $config_file );
 our %conf = $conf_obj->getall;
+
+my $CGI      = CGI->new();
+verify_cgi( \%conf );
 
 $conf{template_directory} = "templates" unless ( $conf{template_directory} );
 $conf{template_directory} = $basedir . "/" . $conf{template_directory} unless ( $conf{template_directory} =~ /^\// );

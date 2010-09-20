@@ -57,7 +57,7 @@ if ( $conf{debug} ) {
 }
 
 my $cgi = new CGI;
-verify_cgi();
+verify_cgi( \%conf );
 
 print "Content-type: text/html\n\n";
 
@@ -113,36 +113,39 @@ if ( ( $cgi->param( 'key1_type' ) or $cgi->param( 'key2_type' ) ) and $cgi->para
             eventTypes            => \@eventTypes
         }
     );
-
-    # 'out' data
-    my $subject2 = q{};
-    if ( $cgi->param( 'key2_type' ) eq "key" ) {
-        $subject2 = "  <nmwg:key id=\"key-2\">\n";
-        $subject2 .= "    <nmwg:parameters id=\"parameters-key-2\">\n";
-        $subject2 .= "      <nmwg:parameter name=\"maKey\">" . $cgi->param( 'key2_1' ) . "</nmwg:parameter>\n";
-        $subject2 .= "    </nmwg:parameters>\n";
-        $subject2 .= "  </nmwg:key>  \n";
-    }
-    else {
-        $subject2 = "  <nmwg:key id=\"key-2\">\n";
-        $subject2 .= "    <nmwg:parameters id=\"parameters-key-2\">\n";
-        $subject2 .= "      <nmwg:parameter name=\"file\">" . $cgi->param( 'key2_1' ) . "</nmwg:parameter>\n";
-        $subject2 .= "      <nmwg:parameter name=\"dataSource\">" . $cgi->param( 'key2_2' ) . "</nmwg:parameter>\n";
-        $subject2 .= "    </nmwg:parameters>\n";
-        $subject2 .= "  </nmwg:key>  \n";
-    }
-
-    my $result2 = $ma->setupDataRequest(
-        {
-            start                 => ( $sec - $time ),
-            end                   => $sec,
-            resolution            => $res,
-            consolidationFunction => "AVERAGE",
-            subject               => $subject2,
-            eventTypes            => \@eventTypes
+    
+    my $result2;
+    if ( $cgi->param( 'key2_type' ) ) {
+        # 'out' data
+        my $subject2 = q{};
+        if ( $cgi->param( 'key2_type' ) eq "key" ) {
+            $subject2 = "  <nmwg:key id=\"key-2\">\n";
+            $subject2 .= "    <nmwg:parameters id=\"parameters-key-2\">\n";
+            $subject2 .= "      <nmwg:parameter name=\"maKey\">" . $cgi->param( 'key2_1' ) . "</nmwg:parameter>\n";
+            $subject2 .= "    </nmwg:parameters>\n";
+            $subject2 .= "  </nmwg:key>  \n";
         }
-    );
-
+        else {
+            $subject2 = "  <nmwg:key id=\"key-2\">\n";
+            $subject2 .= "    <nmwg:parameters id=\"parameters-key-2\">\n";
+            $subject2 .= "      <nmwg:parameter name=\"file\">" . $cgi->param( 'key2_1' ) . "</nmwg:parameter>\n";
+            $subject2 .= "      <nmwg:parameter name=\"dataSource\">" . $cgi->param( 'key2_2' ) . "</nmwg:parameter>\n";
+            $subject2 .= "    </nmwg:parameters>\n";
+            $subject2 .= "  </nmwg:key>  \n";
+        }
+    
+        my $result2 = $ma->setupDataRequest(
+            {
+                start                 => ( $sec - $time ),
+                end                   => $sec,
+                resolution            => $res,
+                consolidationFunction => "AVERAGE",
+                subject               => $subject2,
+                eventTypes            => \@eventTypes
+            }
+        );
+    }
+    
     my $doc1 = q{};
     eval { $doc1 = $parser->parse_string( $result->{"data"}->[0] ); };
     if ( $EVAL_ERROR ) {
@@ -151,7 +154,7 @@ if ( ( $cgi->param( 'key1_type' ) or $cgi->param( 'key2_type' ) ) and $cgi->para
         exit( 1 );
     }
     my $datum1 = find( $doc1->getDocumentElement, "./*[local-name()='datum']", 0 );
-
+    
     my $doc2 = q{};
     eval { $doc2 = $parser->parse_string( $result2->{"data"}->[0] ); };
     if ( $EVAL_ERROR ) {

@@ -51,7 +51,7 @@ if ( $conf{debug} ) {
 }
 
 my $cgi = CGI->new();
-verify_cgi();
+verify_cgi( \%conf );
 
 our $session;
 

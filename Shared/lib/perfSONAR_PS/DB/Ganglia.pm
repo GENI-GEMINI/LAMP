@@ -23,12 +23,166 @@ use Params::Validate qw(:all);
 use English qw( -no_match_vars );
 use Config::General qw(ParseConfig);
 use perfSONAR_PS::Utils::ParameterValidation;
+use Storable qw( dclone );
 
 =head2 new($package, { file })
 
 Create a new object.  
 
 =cut
+
+use constant METRICS => {
+    "http://ggf.org/ns/nmwg/characteristic/system/time/boot/2.0" => {
+            name => "boottime",
+            description => "Last Boot Time",
+            type        => "time",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/memory/disk/free/2.0" => {
+            name        => "disk_free",
+            description => "Total free disk space",
+            type        => "numeric",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/memory/disk/total/2.0" => {
+            name => "disk_total",
+            description => "Total available disk space",
+            type        => "numeric",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/memory/disk/partitions/used/2.0" => {
+            name => "part_max_used",
+            description => "Maximum percent used for all partitions",
+            type        => "percentage",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/network/utilization/bytes/2.0" => {
+            name => "bytes_per_sec",
+            description => "Number of bytes per second",
+            type        => "numeric",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/network/utilization/bytes/received/2.0" => {
+            name => "bytes_in",
+            description => "Number of bytes in per second",
+            type        => "numeric",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/network/utilization/bytes/sent/2.0" => {
+            name => "bytes_out",
+            description => "Number of bytes out per second",
+            type        => "numeric",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/network/utilization/packets/2.0" => {
+            name => "pkts_per_sec",
+            description => "Packets per second",
+            type        => "numeric",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/network/utilization/packets/received/2.0" => {
+            name => "pkts_in",
+            description => "Packets in per second",
+            type        => "numeric",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/network/utilization/packets/sent/2.0" => {
+            name => "pkts_out",
+            description => "Packets out per second",
+            type        => "numeric",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/cpu/process/total/2.0" => {
+            name => "proc_total",
+            description => "Total number of processes",
+            type        => "numeric",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/cpu/process/running/2.0" => {
+            name => "proc_run",
+            description => "Total number of running processes",
+            type        => "numeric",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/cpu/utilization/nice/2.0" => {
+            name => "cpu_nice",
+            description => "Percentage of CPU utilization that occurred while executing at the user level with nice priority",
+            type        => "percentage",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/cpu/speed/2.0" => {
+            name => "cpu_speed",
+            description => "CPU Speed in terms of MHz",
+            type        => "numeric",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/cpu/time/iowait/2.0" => {
+            name => "cpu_wio",
+            description => "Percentage of time that the CPU or CPUs were idle during which the system had an outstanding disk I/O request",
+            type        => "percentage",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/cpu/utilization/user/2.0" => {
+            name => "cpu_user",
+            description => "Percentage of CPU utilization that occurred while executing at the user level",
+            type        => "percentage",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/cpu/time/idle/2.0" => {
+            name => "cpu_idle",
+            description => "Percentage of time that the CPU or CPUs were idle and the system did not have an outstanding disk I/O request",
+            type        => "percentage",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/cpu/count/2.0" => {
+            name => "cpu_num",
+            description => "Total number of CPUs",
+            type        => "numeric",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/cpu/utilization/system/2.0" => {
+            name => "cpu_system",
+            description => "Percentage of CPU utilization that occurred while executing at the system level",
+            type        => "percentage",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/cpu/time/aidle/2.0" => {
+            name => "cpu_aidle",
+            description =>"Percent of time since boot idle CPU",
+            type        => "percentage",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/cpu/load/oneminute/2.0" => {
+            name => "load_one",
+            description => "CPU one minute load average",
+            type        => "numeric",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/cpu/load/fiveminute/2.0" => {
+            name => "load_five",
+            description => "CPU five minute load average",
+            type        => "numeric",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/cpu/load/fifteenminute/2.0" => {
+            name => "load_fifteen",
+            description => "CPU fifteen minute load average",
+            type        => "numeric",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/memory/cached/total/2.0" => {
+            name => "mem_cached",
+            description => "Amount of cached memory in KBs",
+            type        => "numeric",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/memory/main/free/2.0" => {
+            name => "mem_free",
+            description => "Amount of available memory in KBs",
+            type        => "numeric",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/memory/main/total/2.0" => {
+            name => "mem_total",
+            description => "Total amount of memory displayed in KBs",
+            type        => "numeric",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/memory/buffers/total/2.0" => {
+            name => "mem_buffers",
+            description => "Amount of buffered memory in KBs",
+            type        => "numeric",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/memory/shared/total/2.0" => {
+            name => "mem_shared",
+            description => "Amount of shared memory in KBs",
+            type        => "numeric",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/memory/swap/free/2.0" => {
+            name => "swap_free",
+            description => "Amount of available swap memory in KBs",
+            type        => "numeric",
+    },
+    "http://ggf.org/ns/nmwg/characteristic/memory/swap/total/2.0" => {
+            name => "swap_total",
+            description => "Total amount of swap space displayed in KBs",
+            type        => "numeric",
+    },
+};
 
 sub new {
     my ( $package, @args ) = @_;
@@ -51,16 +205,16 @@ sub new {
     $self->{MAP}{"part_max_used"}{"eventTypes"} = [ "http://ggf.org/ns/nmwg/tools/ganglia/memory/disk/partitions/used/2.0", "http://ggf.org/ns/nmwg/characteristic/memory/disk/partitions/used/2.0" ];
     $self->{MAP}{"part_max_used"}{"type"}       = "node";
     $self->{MAP}{"part_max_used"}{"ds"}         = "sum";
-    $self->{MAP}{"bytes_in"}{"eventTypes"}      = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/bytes/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/bytes/2.0", "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" ];
+    $self->{MAP}{"bytes_in"}{"eventTypes"}      = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/bytes/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/bytes/received/2.0", "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" ];
     $self->{MAP}{"bytes_in"}{"type"}            = "node";
     $self->{MAP}{"bytes_in"}{"ds"}              = "sum";
-    $self->{MAP}{"bytes_out"}{"eventTypes"}     = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/bytes/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/bytes/2.0", "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" ];
+    $self->{MAP}{"bytes_out"}{"eventTypes"}     = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/bytes/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/bytes/sent/2.0", "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" ];
     $self->{MAP}{"bytes_out"}{"type"}           = "node";
     $self->{MAP}{"bytes_out"}{"ds"}             = "sum";
-    $self->{MAP}{"pkts_in"}{"eventTypes"}       = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/packets/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/packets/2.0" ];
+    $self->{MAP}{"pkts_in"}{"eventTypes"}       = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/packets/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/packets/received/2.0" ];
     $self->{MAP}{"pkts_in"}{"type"}             = "node";
     $self->{MAP}{"pkts_in"}{"ds"}               = "sum";
-    $self->{MAP}{"pkts_out"}{"eventTypes"}      = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/packets/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/packets/2.0" ];
+    $self->{MAP}{"pkts_out"}{"eventTypes"}      = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/packets/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/packets/sent/2.0" ];
     $self->{MAP}{"pkts_out"}{"type"}            = "node";
     $self->{MAP}{"pkts_out"}{"ds"}              = "sum";
     $self->{MAP}{"proc_total"}{"eventTypes"}   = [ "http://ggf.org/ns/nmwg/tools/ganglia/cpu/process/total/2.0", "http://ggf.org/ns/nmwg/characteristic/cpu/process/total/2.0" ];
@@ -511,6 +665,20 @@ sub closeDB {
     my $parameters = validateParams( @args, {} );
     $self->commitDB();
     return;
+}
+
+=head2 getMetric($class, { eventType => 1 } )
+
+Returns the metric information of the given eventType.
+
+=cut
+
+sub getMetric {
+    my ( $class, $et ) = @_;
+    
+    return undef unless exists METRICS->{ $et };
+    
+    return dclone( METRICS->{ $et } );
 }
 
 1;

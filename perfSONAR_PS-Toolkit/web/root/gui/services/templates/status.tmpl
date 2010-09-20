@@ -58,7 +58,7 @@ function handle_pushpull_response(response, io_args) {
     <table class="basic_table">
         <tr><th  style="width: 600px" colspan=2>Configured Services</th></tr>
 	[% FOREACH node_pair IN nodes %]
-	    <tr><td class="top" colspan="2">Node [% node_pair.value.name %]</td></tr>
+	    <tr><td style="border-bottom: 1px solid #ccc;" class="top" colspan="2">Node [% node_pair.value.name %]</td></tr>
 	    [% FOREACH service_pair IN node_pair.value.SERVICES %]
 	       [% UNLESS service_pair.value.nodisplay %]
 	        <tr>
@@ -73,7 +73,7 @@ function handle_pushpull_response(response, io_args) {
 		    </tr>
 		   [% END %]
 		[% END %]
-		<tr><td class="bottom"></td></tr>
+		<tr><td style="border-bottom: 2px solid #6678b1;" class="bottom" colspan="2" /></tr>
 	[% END %]
 	</table>
 <p>

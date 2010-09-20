@@ -59,7 +59,7 @@ if ( $conf{debug} ) {
 }
 
 my $cgi = new CGI;
-verify_cgi();
+verify_cgi( \%conf );
 
 print "Content-type: text/html\n\n";
 if ( ( $cgi->param( 'key1_type' ) or $cgi->param( 'key2_type' ) ) and $cgi->param( 'url' ) ) {

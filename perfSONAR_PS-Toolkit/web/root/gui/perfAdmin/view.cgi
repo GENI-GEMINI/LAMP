@@ -31,13 +31,13 @@ use perfSONAR_PS::Client::LS;
 my $cgi    = new CGI;
 my $parser = XML::LibXML->new();
 
-verify_cgi();
-
 croak "hLS instance not provided unless " unless $cgi->param( 'hls' );
 
 my $config_file = $basedir . '/etc/web_admin.conf';
 my $conf_obj = Config::General->new( -ConfigFile => $config_file );
 our %conf = $conf_obj->getall;
+
+verify_cgi( \%conf );
 
 $conf{template_directory} = "templates" unless ( $conf{template_directory} );
 $conf{template_directory} = $basedir . "/" . $conf{template_directory} unless ( $conf{template_directory} =~ /^\// );

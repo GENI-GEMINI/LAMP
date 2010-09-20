@@ -20,6 +20,9 @@ sub verify_cgi {
     my $VALID_PEERS_FILE;
     my %valid_peers = ();
     
+    # ssl_verify_peers = 1 is default
+    return 0 if $conf and exists $conf->{ssl_verify_peers} and not $conf->{ssl_verify_peers};
+    
     if ( $conf and exists $conf->{"ssl_valid_peers_file"} and $conf->{"ssl_valid_peers_file"} ) {
          $VALID_PEERS_FILE = $conf->{"ssl_valid_peers_file"};
     }

@@ -58,7 +58,7 @@ my $html;
 my %vars = ();
 
 my $cgi = CGI->new();
-verify_cgi();
+verify_cgi( \%conf );
 
 my $function = $cgi->param("fname");
 unless ( $function ) {

@@ -63,7 +63,7 @@ my $psconfig = perfSONAR_PS::NPToolkit::Config::pSConfig->new();
 $psconfig->init( { unis_instance => $conf{unis_instance} } );
 
 my $cgi = CGI->new();
-verify_cgi();
+verify_cgi( \%conf );
 
 our $session;
 

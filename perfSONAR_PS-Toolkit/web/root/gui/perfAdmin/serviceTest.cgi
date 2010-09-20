@@ -31,6 +31,7 @@ use FindBin qw($RealBin);
 my $basedir = "$RealBin/";
 use lib "$RealBin/../../../../lib";
 
+use perfSONAR_PS::DB::Ganglia;
 use perfSONAR_PS::Utils::GENIPolicy qw( verify_cgi );
 use perfSONAR_PS::Client::MA;
 use perfSONAR_PS::Common qw( extract find );
@@ -63,7 +64,7 @@ if ( $conf{debug} ) {
 }
 
 my $cgi      = CGI->new();
-verify_cgi();
+verify_cgi( \%conf );
 
 print $cgi->header();
 
@@ -90,15 +91,160 @@ else {
 
 my $ma = new perfSONAR_PS::Client::MA( { instance => $service } );
 
+sub do_ganglia {
+    my $subject;
+    
+    # First we get all the node characteristics    
+    $subject  = "    <ganglia:subject xmlns:ganglia=\"http://ggf.org/ns/nmwg/tools/ganglia/2.0/\" id=\"s\">\n";
+    $subject .= "      <nmwgt3:node xmlns:nmwgt3=\"http://ggf.org/ns/nmwg/topology/base/3.0/\" />\n";
+    #$subject .= "      <nmwgt:interface xmlns:nmwgt=\"http://ggf.org/ns/nmwg/topology/2.0/\" />\n";
+    $subject .= "    </ganglia:subject>\n";
+    
+    my $parser = XML::LibXML->new();
+    my $result = $ma->metadataKeyRequest(
+        {
+            subject    => $subject,
+            eventTypes => [],
+        }
+    );
+    
+    unless ( $#{ $result->{"metadata"} } > -1 ) {
+        my $html = errorPage("MA <b><i>" . $service . "</i></b> did not return the expected response, is it functioning?");
+        print $html;
+        exit( 1 );
+    }
+    
+    my $metadata = q{};
+    eval { $metadata = $parser->parse_string( $result->{"metadata"}->[0] ); };
+    if ( $EVAL_ERROR ) {
+        my $html = errorPage("Could not parse XML response from MA <b><i>" . $service . "</i></b>.");
+        print $html;
+        exit( 1 );
+    }
+    
+    my $et = extract( find( $metadata->getDocumentElement, ".//nmwg:eventType", 1 ), 0 );
+    
+    if ( $et eq "error.ma.storage" ) {
+        my $html = errorPage("MA <b><i>" . $service . "</i></b> did not return the expected response, be sure it is configured and populated with data.");
+        print $html;
+        exit( 1 );
+    }
+    
+    my %lookup = ();
+    foreach my $d ( @{ $result->{"data"} } ) {
+        my $data = q{};
+        eval { $data = $parser->parse_string( $d ); };
+        if ( $EVAL_ERROR ) {
+            my $html = errorPage("Could not parse XML response from MA <b><i>" . $service . "</i></b>.");
+            print $html;
+            exit( 1 );
+        }
+
+        my $metadataIdRef = $data->getDocumentElement->getAttribute( "metadataIdRef" );
+        my $key           = extract( find( $data->getDocumentElement, ".//nmwg:parameter[\@name=\"maKey\"]", 1 ), 0 );
+        if ( $key ) {
+            $lookup{$metadataIdRef}{"key1"} = $key if $metadataIdRef;
+            $lookup{$metadataIdRef}{"key2"} = q{};
+            $lookup{$metadataIdRef}{"type"} = "key";
+        }
+        else {
+            $key = extract( find( $data->getDocumentElement, ".//nmwg:parameter[\@name=\"file\"]", 1 ), 0 );
+            $lookup{$metadataIdRef}{"key1"} = $key if $key and $metadataIdRef;
+            $key = extract( find( $data->getDocumentElement, ".//nmwg:parameter[\@name=\"dataSource\"]", 1 ), 0 );
+            $lookup{$metadataIdRef}{"key2"} = $key if $key and $metadataIdRef;
+            $lookup{$metadataIdRef}{"type"} = "nonkey";
+        }
+    }
+    
+    my $counter    = 0;
+    my %list = ();
+    foreach my $md ( @{ $result->{"metadata"} } ) {
+        my $metadata = q{};
+        eval { $metadata = $parser->parse_string( $md ); };
+        if ( $EVAL_ERROR ) {
+            my $html = errorPage("Could not parse XML response from MA <b><i>" . $service . "</i></b>.");
+            print $html;
+            exit( 1 );
+        }
+
+        my $metadataId = $metadata->getDocumentElement->getAttribute( "id" );
+        my $host       = extract( find( $metadata->getDocumentElement, "./*[local-name()='subject']/nmwgt3:node/nmwgt3:hostName", 1 ), 0 );            
+        
+        my $metric;
+        my $metric_et; 
+        foreach my $et ( find( $metadata->getDocumentElement, "./*[local-name()='eventType']", 0 )->get_nodelist ) {
+            $metric_et = extract( $et, 1 );
+            $metric = perfSONAR_PS::DB::Ganglia->getMetric( $metric_et );
+            last if $metric;
+        }
+        
+        next unless $metric and ( $metric->{type} eq "numeric" or $metric->{type} eq "percentage" );
+        
+        $metric->{eventType} = $metric_et;
+        
+        unless ( exists $list{$metric_et} ) {
+            $list{$metric_et} = $metric;
+            $list{$metric_et}->{subjects} = ();
+        }
+        
+        #$list{$metric_et}->{subjects}{$host} = () unless $list{$metric_et}->{subjects}{$host}; 
+        
+        if ( $metric->{name} =~ m/.*_out$/ ) {
+            $list{$metric_et}->{subjects}{$host}->{"key2_1"}    = $lookup{$metadataId}{"key1"};
+            $list{$metric_et}->{subjects}{$host}->{"key2_2"}    = $lookup{$metadataId}{"key2"};
+            $list{$metric_et}->{subjects}{$host}->{"key2_type"} = $lookup{$metadataId}{"type"};
+        } else {
+            $list{$metric_et}->{subjects}{$host}->{"key1_1"}    = $lookup{$metadataId}{"key1"};
+            $list{$metric_et}->{subjects}{$host}->{"key1_2"}    = $lookup{$metadataId}{"key2"};
+            $list{$metric_et}->{subjects}{$host}->{"key1_type"} = $lookup{$metadataId}{"type"};
+        }
+    }
+
+    foreach my $metric_et ( sort keys %list ) {
+        
+        my @subjects = ();
+        foreach my $host ( sort keys %{ $list{$metric_et}->{subjects} } ) {
+        
+            push @subjects,
+                {
+                hostName  => $host,
+                key1type  => $list{$metric_et}->{subjects}{$host}->{"key1_type"},
+                key11     => $list{$metric_et}->{subjects}{$host}->{"key1_1"},
+                key12     => $list{$metric_et}->{subjects}{$host}->{"key1_2"},
+                key2type  => $list{$metric_et}->{subjects}{$host}->{"key2_type"},
+                key21     => $list{$metric_et}->{subjects}{$host}->{"key2_1"},
+                key22     => $list{$metric_et}->{subjects}{$host}->{"key2_2"},
+                count     => $counter,
+                service   => $service
+                };
+
+            $counter++;
+        }
+        
+        $list{$metric_et}->{subjects} = \@subjects;
+    }
+            
+    my %vars = (
+        service    => $service,
+        metrics    => \%list
+    );
+
+    my $tt = Template->new( INCLUDE_PATH => $conf{template_directory} );
+
+    my $html;
+
+    $tt->process( "serviceTest_utilization.tmpl", \%vars, \$html ) or die $tt->error();
+
+    print $html;
+
+    exit ( 0 );
+}
+
 my $subject;
 my @eventTypes = ();
 push @eventTypes, $eventType;
 if ( $eventType eq "http://ggf.org/ns/nmwg/tools/ganglia/2.0" ) {
-    $subject  = "    <ganglia:subject xmlns:ganglia=\"http://ggf.org/ns/nmwg/tools/ganglia/2.0/\" id=\"s\">\n";
-    #$subject .= "      <nmwgt3:node xmlns:nmwgt3=\"http://ggf.org/ns/nmwg/topology/base/3.0/\" />\n";
-    $subject .= "      <nmwgt:interface xmlns:nmwgt=\"http://ggf.org/ns/nmwg/topology/2.0/\" />\n";
-    $subject .= "    </ganglia:subject>\n";
-    pop @eventTypes;
+    do_ganglia();
 }
 elsif ( $eventType eq "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" ) {
     $subject = "    <netutil:subject xmlns:netutil=\"http://ggf.org/ns/nmwg/characteristic/utilization/2.0/\" id=\"s\">\n";
@@ -160,7 +306,7 @@ if ( $et eq "error.ma.storage" ) {
     exit( 1 );
 }
 else {
-    if ( $eventType eq "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" or $eventType eq "http://ggf.org/ns/nmwg/tools/ganglia/2.0" ) {
+    if ( $eventType eq "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" ) {
         my %lookup = ();
         foreach my $d ( @{ $result->{"data"} } ) {
             my $data = q{};
