@@ -580,7 +580,7 @@ sub openDB {
                             $self->{STORE} .= "      <nmwg:parameter name=\"supportedEventType\">" . $eT . "</nmwg:parameter>\n";
                         }
                         $self->{STORE} .= "        <nmwg:parameter name=\"type\">rrd</nmwg:parameter>\n";
-                        $self->{STORE} .= "        <nmwg:parameter name=\"file\">" . $config{"rrd_rootdir"} . "/" . $config{"gridname"} . "/" . $struct{$grid}{$cluster}{$host}{"host_info"}{"HOSTNAME"} . "/" . $struct{$grid}{$cluster}{$host}{$metric}{"NAME"} . ".rrd</nmwg:parameter>\n";
+                        $self->{STORE} .= "        <nmwg:parameter name=\"file\">" . $config{"rrd_rootdir"} . "/" . $cluster . "/" . $struct{$grid}{$cluster}{$host}{"host_info"}{"HOSTNAME"} . "/" . $struct{$grid}{$cluster}{$host}{$metric}{"NAME"} . ".rrd</nmwg:parameter>\n";
                         $self->{STORE} .= "        <nmwg:parameter name=\"valueUnits\">" . $struct{$grid}{$cluster}{$host}{$metric}{"UNITS"} . "</nmwg:parameter>\n";
                         $self->{STORE} .= "        <nmwg:parameter name=\"dataSource\">" . $meta->{"ds"} . "</nmwg:parameter>\n";
 
