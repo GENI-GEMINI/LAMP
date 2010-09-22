@@ -780,7 +780,6 @@ sub save_state {
     }
     
     my %state = (
-        UNIS_INSTANCE       => $self->{UNIS_INSTANCE},
         NODES               => $self->{NODES},
         CONFIG_NODES        => $self->{CONFIG_NODES},
         LAST_PULL_DATE      => $self->{LAST_PULL_DATE},
@@ -807,7 +806,6 @@ sub restore_state {
     
     return -1 unless $state;
     
-    $self->{UNIS_INSTANCE}      = $state->{UNIS_INSTANCE};
     $self->{NODES}              = $state->{NODES};
     $self->{CONFIG_NODES}       = $state->{CONFIG_NODES};
     $self->{LAST_PULL_DATE}     = $state->{LAST_PULL_DATE};

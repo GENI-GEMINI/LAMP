@@ -87,7 +87,7 @@ sub init {
 
 sub save {
     my ( $self, @params ) = @_;
-    my $parameters = validate( @params, { save_ntp_conf => 0, restart_services => 0, } );
+    my $parameters = validate( @params, { save_ntp_conf => 0, save_known_servers => 0, restart_services => 0, } );
     
     my $res;
     
@@ -105,16 +105,19 @@ sub save {
         }
     }
     
-    my $ntp_known_servers_output = $self->generate_ntp_server_list();
-
-    return (-1, "Problem generating list of known servers") unless ( $ntp_known_servers_output );
+    # The node-side of pSConfig, on the other hand, only saves the ntp_conf file. 
+    if ( $parameters->{save_known_servers} ) {
+        my $ntp_known_servers_output = $self->generate_ntp_server_list();
     
-    $res = save_file( { file => $self->{KNOWN_SERVERS_FILE}, content => $ntp_known_servers_output } );
-    if ( $res == -1 ) {
-        $self->{LOGGER}->error( "File save failed: " . $self->{KNOWN_SERVERS_FILE} );
-        return (-1, "Problem saving list of known NTP servers");
+        return (-1, "Problem generating list of known servers") unless ( $ntp_known_servers_output );
+        
+        $res = save_file( { file => $self->{KNOWN_SERVERS_FILE}, content => $ntp_known_servers_output } );
+        if ( $res == -1 ) {
+            $self->{LOGGER}->error( "File save failed: " . $self->{KNOWN_SERVERS_FILE} );
+            return (-1, "Problem saving list of known NTP servers");
+        }
     }
-
+    
     if ( $parameters->{restart_services} ) {
         $res = restart_service( { name => "ntp" } );
         if ( $res == -1 ) {

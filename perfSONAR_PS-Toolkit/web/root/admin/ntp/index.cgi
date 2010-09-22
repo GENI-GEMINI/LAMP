@@ -202,7 +202,7 @@ sub display_body {
 }
 
 sub save_config {
-    my ($status, $res) = $ntp_conf->save( { restart_services => 1 } );
+    my ($status, $res) = $ntp_conf->save( { save_known_servers => 1, restart_services => 0 } );
     
     if ( $cgi->param("args") ) {
         my $node_id = $cgi->param("args");
