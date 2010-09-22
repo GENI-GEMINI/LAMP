@@ -45,7 +45,7 @@ my @default_known_services = (
         description               => "LS Registration Daemon",
         enabled_services_variable => "ls_registration_daemon_enabled",
         service_name              => "ls_registration_daemon",
-        enabled                   => 1,
+        enabled                   => 0,
     },
     {
         name                      => "snmp_ma",
@@ -80,6 +80,7 @@ my @default_known_services = (
         description               => "OWAMP",
         enabled_services_variable => "owamp_enabled",
         service_name              => "owampd",
+        dependencies              => [ 'ls_registration_daemon', 'ntp', ],
         enabled                   => 0,
     },
     {
@@ -87,6 +88,7 @@ my @default_known_services = (
         description               => "BWCTL",
         enabled_services_variable => "bwctl_enabled",
         service_name              => "bwctld",
+        dependencies              => [ 'ls_registration_daemon', 'ntp', ],
         enabled                   => 0,
     },
     {

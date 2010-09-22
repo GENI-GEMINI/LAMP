@@ -54,7 +54,7 @@ sub GetCertificate($) {
     return GeniResponse->Create( GENIRESPONSE_ERROR, undef,
         "Not a slice credential" ) unless $credential->IsSliceCredential();
     
-    my $expiration = strftime( "%y%m%d%H%M%SZ", localtime( str2time( '2010-01-01T00:00:05' ) ) );
+    my $expiration = strftime( "%y%m%d%H%M%SZ", localtime( str2time( $credential->expires() ) ) );
     
     my ( $auth, $type, $slice ) = GeniHRN::Parse( $credential->target_urn() );
     

@@ -2,8 +2,6 @@ package ProtoGENI::pSConfig::IPAddress;
 
 use base 'perfSONAR_PS::Services::pSConfig::Handlers::Base';
 
-use fields 'LOGGER';
-
 use strict;
 use warnings;
 

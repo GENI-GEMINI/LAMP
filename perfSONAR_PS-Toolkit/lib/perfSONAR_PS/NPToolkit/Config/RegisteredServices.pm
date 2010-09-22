@@ -43,7 +43,7 @@ for \$store in /nmwg:store[\@type='LSStore'] return
     if (exists(\$store/nmwg:metadata)) then
         let \$metadata := \$store/nmwg:metadata
         let \$node_id := \$metadata/perfsonar:subject/psservice:service/*[local-name()='serviceNode' or local-name()='node']
-        where contains(\$node_id, 'urn:ogf:network:domain=emulab.net+slice+lampdemo:node=')
+        where contains(\$node_id, 'urn:ogf:network:domain=__DOMAIN__:node=')
         return \$store
     else if (exists(\$store/nmwg:data)) then
         let \$data := \$store/nmwg:data
