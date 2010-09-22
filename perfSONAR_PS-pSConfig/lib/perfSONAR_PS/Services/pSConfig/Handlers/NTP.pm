@@ -90,6 +90,8 @@ sub apply {
     
     $self->load_encoded( { service => $service } );
     
+    return 0 unless keys %{ $self->{NTP_SERVERS} };
+     
     my $ntp_conf = perfSONAR_PS::NPToolkit::Config::NTP->new();
     $ntp_conf->init( {
             ntp_conf_template => $self->{NTP_CONF_TEMPLATE_FILE},
