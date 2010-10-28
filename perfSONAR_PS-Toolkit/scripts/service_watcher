@@ -57,20 +57,21 @@ my $http_pid                  = "/var/run/apache2.pid";
 my $http_init_script          = "apache2";
 my $http_pname                = "apache2";
 
-my ($LOGGER_CONF, $CONFIG_FILE, $REGULAR_RESTART, $DEBUGFLAG);
+my ($LOGGER_CONF, $CONFIG_FILE, $REGULAR_RESTART, $FORCE_RESTART, $DEBUGFLAG);
 
 $status = GetOptions(
     'config=s'        => \$CONFIG_FILE,
     'logger=s'        => \$LOGGER_CONF,
     'verbose'         => \$DEBUGFLAG,
     'regular_restart' => \$REGULAR_RESTART,
+    'force_restart'   => \$FORCE_RESTART
 );
 
 $CONFIG_FILE = $default_config unless ($CONFIG_FILE);
 $LOGGER_CONF = $default_logger_config unless ($LOGGER_CONF);
 
 unless ($status) {
-	print "$0: [--config=/path/to/service-watcher.conf] [--logger=/path/to/service-watcher_logger.conf] [--regular_restart] [--verbose]\n";
+	print "$0: [--config=/path/to/service-watcher.conf] [--logger=/path/to/service-watcher_logger.conf] [--regular_restart] [--force_restart] [--verbose]\n";
 	exit 1;
 }
 
@@ -149,6 +150,36 @@ $psconfig->init( pid_files => $pSConfig_pid, process_names => $pSConfig_pname );
 my $http = perfSONAR_PS::ServiceWatcher::HTTP->new();
 $http->init( pid_files => $http_pid, init_script => $http_init_script, process_names => $http_pname );
 
+# do a forced restart on all enabled services pass if the "--force-restart" flag was specified
+if ($FORCE_RESTART) {
+        foreach my $service ( $psconfig, $ntp, $mysql, $owamp, $bwctl, $gmond, $gmetad, $npad, $ndt, $psb_ma, $pinger, $psb_owamp_collector,
+                              $psb_owamp_master, $psb_bwctl_collector, $psb_bwctl_master, $ls_registration_daemon, $snmp_ma, $http ) {
+                              
+                my ($status, $res);
+
+                ($status, $res) = $service->is_enabled();
+                if ($status != 0) {
+                        $logger->error("Failed to check if ".$service->name." is enabled");
+                        next;
+                }
+
+                unless ($res) {
+                        $logger->debug("Skipping ".$service->name);
+                        next;
+                }
+
+                $logger->info("Forced restart for ".$service->name.".");
+
+                # try and kill any remnants the service and restart
+                ($status) = $service->kill();
+
+                # Pause some to make sure it's really dead.
+                sleep(5);
+
+                $status = $service->start();
+        }
+}
+
 # do a 'restart' pass if the "--regular-restart" flag was specified
 if ($REGULAR_RESTART) {
 	foreach my $service ( $psconfig, $ntp, $mysql, $owamp, $bwctl, $gmond, $gmetad, $npad, $ndt, $psb_ma, $pinger, $psb_owamp_collector,
@@ -186,6 +217,7 @@ if ($REGULAR_RESTART) {
 		$status = $service->start();
 	}
 }
+
 # do a single pass to see if the services are up, and try to start them. Report any that are down.
 foreach my $service ( $psconfig, $ntp, $mysql, $owamp, $bwctl, $gmond, $gmetad, $npad, $ndt, $psb_ma, $pinger, $psb_owamp_collector,
                               $psb_owamp_master, $psb_bwctl_collector, $psb_bwctl_master, $ls_registration_daemon, $snmp_ma, $http ) {
