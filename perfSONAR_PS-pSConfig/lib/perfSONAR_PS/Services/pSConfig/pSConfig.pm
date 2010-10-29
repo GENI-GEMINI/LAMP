@@ -184,6 +184,7 @@ sub run {
     }
     
     my $node = $res->nonBlankChildNodes()->[0];
+    $node->setNamespace( PSCONFIG_NS, "unis", 0 );
     
     my $last_config;
     eval {
@@ -194,7 +195,6 @@ sub run {
         $fd->close;
         
         $fd = new IO::File( "> $self->{LAST_CONFIG_FILE}" ) or die " Failed to open last config file ";
-        $node->setNamespace( PSCONFIG_NS, "unis", 0 );
         print $fd $node->toString;
         $fd->close;
     } or do {

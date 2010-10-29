@@ -72,8 +72,8 @@ TODO:
 sub apply {
     my ( $self, $node, $last_config, $changed, $first_run, $failed_last ) = @_;
     
-    my $force_run = ( $changed or $failed_last or $first_run );
-    return 0 unless $force_run;
+    my $force_run = ( $failed_last or $first_run );
+    return 0 unless $changed or $force_run;
     
     my $service = find( $node, './/*[local-name()="service" and namespace-uri()="' . PSCONFIG_NS . '" and @type="regular_testing"]', 1 );
     

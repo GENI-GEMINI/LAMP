@@ -1077,7 +1077,7 @@ sub start {
 sub kill {
 	my ($self) = @_;
 
-	system("pkill -f LSRegistrationDaemon");
+	system("pkill -f ls_registration_daemon.pl");
 
 	return 0;
 }

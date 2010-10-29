@@ -971,7 +971,7 @@ sub add_session {
         ldie "Unable to save NODE=$reqh->{'SENDNODE'}";
     }
 
-    $sql = "INSERT INTO ${tprefix}_DATA(
+    $sql = "INSERT IGNORE INTO ${tprefix}_DATA(
                 send_id,
                 recv_id,
                 tspec_id,
