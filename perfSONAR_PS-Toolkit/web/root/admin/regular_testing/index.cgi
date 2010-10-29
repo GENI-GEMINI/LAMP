@@ -215,6 +215,7 @@ sub reset_state {
     }
     else {
         ( $status, $res ) = $testing_conf->init( { perfsonarbuoy_conf_template => $conf{perfsonarbuoy_conf_template}, perfsonarbuoy_conf_file => $conf{perfsonarbuoy_conf_file}, pinger_landmarks_file => $conf{pinger_landmarks_file} } );
+        $testing_conf->reset_state( { ignore_local => 1, } );
     }
     
     if ( $status != 0 ) {

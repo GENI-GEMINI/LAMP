@@ -78,6 +78,7 @@ sub load_encoded {
         my %members = ();
         foreach my $member (  $test->getElementsByTagNameNS( RTEST_PSCONFIG_NS, "member" ) ) {
             $members{ $member->getAttribute( "id" ) } = {
+                id          => $member->getAttribute( "id" ),
                 address     => extract_first( $member, "address", RTEST_PSCONFIG_NS, 1 ),
                 name        => extract_first( $member, "name", RTEST_PSCONFIG_NS, 0, 1 ),
                 port        => extract_first( $member, "port", RTEST_PSCONFIG_NS, 1 ),

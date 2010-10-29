@@ -220,17 +220,19 @@ sub last_modified {
     return $mtime;
 }
 
-=head2 reset_state()
+=head2 reset_state({ ignore_local => 0 })
     Resets the state of the module to the state immediately after having run "init()".
 =cut
 
 sub reset_state {
     my ( $self, @params ) = @_;
-    my $parameters = validate( @params, {} );
+    my $parameters = validate( @params, { ignore_local => 0, } );
 
     # Reset the tests
     $self->{TESTS} = ();
 
+    return ( 0, "" ) if $parameters->{ignore_local};
+    
     my ( $status, $res );
 
     ( $status, $res ) = $self->parse_owmesh_conf( { file => $self->{PERFSONARBUOY_CONF_FILE} } );
