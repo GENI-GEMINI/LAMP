@@ -40,7 +40,7 @@ my $config_file = $basedir . '/etc/web_admin.conf';
 my $conf_obj = Config::General->new( -ConfigFile => $config_file );
 our %conf = $conf_obj->getall;
 
-our %default_ports = ( pinger => undef, owamp => 891, bwctl => 4823 );
+our %default_ports = ( pinger => undef, owamp => 861, bwctl => 4823 );
 
 $conf{sessions_directory} = "/tmp" unless ( $conf{sessions_directory} );
 $conf{sessions_directory} = $basedir . "/" . $conf{sessions_directory} unless ( $conf{sessions_directory} =~ /^\// );
