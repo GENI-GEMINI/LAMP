@@ -38,18 +38,17 @@ use constant LS_DISCOVERY_ET => 'http://ogf.org/ns/nmwg/tools/org/perfsonar/serv
 use constant SERVICES_XQUERY => "
 declare namespace nmwg=\"http://ggf.org/ns/nmwg/base/2.0/\";
 declare namespace perfsonar=\"http://ggf.org/ns/nmwg/tools/org/perfsonar/1.0/\";
-declare namespace psservice=\"http://ggf.org/ns/nmwg/tools/org/perfsonar/service/1.0/\";
 for \$store in /nmwg:store[\@type='LSStore'] return
     if (exists(\$store/nmwg:metadata)) then
         let \$metadata := \$store/nmwg:metadata
-        let \$node_id := \$metadata/perfsonar:subject/psservice:service/*[local-name()='serviceNode' or local-name()='node']
+        let \$node_id := \$metadata/perfsonar:subject/*[local-name()='service']/*[local-name()='serviceNode' or local-name()='node']
         where contains(\$node_id, '__DOMAIN__:node=')
         return \$store
     else if (exists(\$store/nmwg:data)) then
         let \$data := \$store/nmwg:data
         let \$metadata_id := \$data/\@metadataIdRef
         where exists( /nmwg:store[\@type='LSStore']/nmwg:metadata[\@id=\$metadata_id
-                      ]/perfsonar:subject/psservice:service/*[(local-name()='serviceNode' or local-name()='node') 
+                      ]/perfsonar:subject/*[local-name()='service']/*[(local-name()='serviceNode' or local-name()='node') 
                                                              and contains(., '__DOMAIN__:node=')])
         return \$store
     else ()
@@ -487,14 +486,17 @@ sub pull_registered {
                         if ( $value eq "http://ggf.org/ns/nmwg/tools/snmp/2.0" ) {
                             $value = "http://ggf.org/ns/nmwg/characteristic/utilization/2.0";
                         }
-                        if ( $value eq "http://ggf.org/ns/nmwg/tools/pinger/2.0/" ) {
+                        elsif ( $value eq "http://ggf.org/ns/nmwg/tools/pinger/2.0/" ) {
                             $value = "http://ggf.org/ns/nmwg/tools/pinger/2.0";
                         }
-                        if ( $value eq "http://ggf.org/ns/nmwg/characteristics/bandwidth/acheiveable/2.0" or $value eq "http://ggf.org/ns/nmwg/characteristics/bandwidth/achieveable/2.0" ) {
+                        elsif ( $value eq "http://ggf.org/ns/nmwg/characteristics/bandwidth/acheiveable/2.0" or $value eq "http://ggf.org/ns/nmwg/characteristics/bandwidth/achieveable/2.0" ) {
                             $value = "http://ggf.org/ns/nmwg/characteristics/bandwidth/achievable/2.0";
                         }
-                        if ( $value eq "http://ggf.org/ns/nmwg/tools/iperf/2.0" ) {
+                        elsif ( $value eq "http://ggf.org/ns/nmwg/tools/iperf/2.0" ) {
                             $value = "http://ggf.org/ns/nmwg/characteristics/bandwidth/achievable/2.0";
+                        }
+                        elsif ( $value eq "http://ggf.org/ns/nmwg/characteristic/delay/summary/20070921" ) {
+                            $value = "http://ggf.org/ns/nmwg/tools/owamp/2.0";
                         }
                         # more eventTypes as needed...
     
@@ -514,6 +516,14 @@ sub pull_registered {
                 }
                 last;
             }
+        }
+        
+        # Clean cache directory first
+        foreach my $file ( keys %daemonMap ) {
+            unlink ( $self->{CACHE_DIRECTORY} . "/" . $file ) if ( -f $self->{CACHE_DIRECTORY} . "/" . $file );
+        }
+        foreach my $file ( keys %serviceMap ) {
+            unlink ( $self->{CACHE_DIRECTORY} . "/" . $file ) if ( -f $self->{CACHE_DIRECTORY} . "/" . $file );
         }
         
         my %counter = ();
@@ -537,7 +547,6 @@ sub pull_registered {
                 print OUT "|";
                 print OUT $host->{"NODE"} if $host->{"NODE"};
                 print OUT "\n";
-                print $file , " - ", $host->{"CONTACT"}, "\n";
             }
             close( OUT );
         }

@@ -10,9 +10,13 @@ function handle_pull() {
             content: { 'fname': 'pull_registered' },
             timeout: 300000,
             load: handle_pull_response,
-            error: function (response, io_args) { dojo.byId('web_admin_error').innerHTML="Problem pulling registered services."; },
+            error: handle_pull_error,
             mimetype: "text/json" 
         });
+}
+
+function handle_pull_error(response, io_args) { 
+    dojo.byId('web_admin_error').innerHTML="Problem pulling registered services."; 
 }
 
 function handle_pull_response(response, io_args) {
@@ -88,7 +92,7 @@ function handle_pull_response(response, io_args) {
       </tr>
       [% ELSE %]
       <tr>         
-        <th align="center" colspan="4">
+        <th align="center" colspan="5">
           <font size="+1">[% type %] Daemons</font>
         </th>
       </tr>
@@ -169,7 +173,7 @@ function handle_pull_response(response, io_args) {
     <a name="[% type %]" />
     <table class="basic_table" border="1" cellpadding="1" width="85%">
       <tr>
-        <th align="center" colspan="5">
+        <th align="center" colspan="6">
           <font size="+1">[% type %] Services</font>
         </th>
       </tr>

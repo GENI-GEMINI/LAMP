@@ -68,8 +68,6 @@ $registered_services->init( { unis_instance => $conf{unis_instance}, domain_id =
 
 my $function = $CGI->param("fname");
 unless ( $function ) {
-    print $CGI->header();
-
     my $tt = Template->new( INCLUDE_PATH => $conf{template_directory} ) or die( "Couldn't initialize template toolkit" );
     
     my $html;
@@ -84,6 +82,7 @@ unless ( $function ) {
     
     $tt->process( "directory.tmpl", \%vars, \$html ) or die $tt->error();
     
+    print $CGI->header();
     print $html;
 
 } 
