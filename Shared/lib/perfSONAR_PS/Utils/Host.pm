@@ -62,18 +62,79 @@ sub get_ips {
 }
 
 sub get_ethernet_interfaces {
+    my $parameters = validate( @_, { full_info => 0, } );
+    
     my @ret_interfaces = ();
-
+    
+    #
+    # GFR: I didn't want to create yet another method, but I'm also keeping
+    #   it backward compatible. Code should be refactored to just use the map.
+    #
+    unless ( $parameters->{full_info} ) {
+        # Old behavior.        
+        my $IFCONFIG;
+        open( $IFCONFIG, "-|", "/sbin/ifconfig -a" ) or return;
+        my $is_eth = 0;
+        while ( <$IFCONFIG> ) {
+            if ( /^(\S*).*Link encap:([^ ]+)/ ) {
+                if ( lc( $2 ) eq "ethernet" ) {
+                    push @ret_interfaces, $1;
+                }
+            }
+        }
+        close( $IFCONFIG );
+    
+        return @ret_interfaces;
+    }
+    
+    # With full_info we actually return a hash with 
+    # name, mac and ips for each interface.
     my $IFCONFIG;
     open( $IFCONFIG, "-|", "/sbin/ifconfig -a" ) or return;
     my $is_eth = 0;
+    my %iface = ();
     while ( <$IFCONFIG> ) {
-        if ( /^(\S*).*Link encap:([^ ]+)/ ) {
+        if ( /^(\S*).*Link encap:([^ ]+)(?:\s+HWaddr (\S+))?/ ) {
+            if ( %iface ) {
+                push @ret_interfaces, {
+                    "name"  => $iface{"name"},
+                    "mac"   => $iface{"mac"},
+                    "ipv4"  => $iface{"ipv4"},
+                    "ipv6"  => $iface{"ipv6"},
+                };
+                
+                %iface = ();
+            }
+            
             if ( lc( $2 ) eq "ethernet" ) {
-                push @ret_interfaces, $1;
+                $iface{"name"} = $1;
+                $iface{"mac"}  = $3;
+                $is_eth = 1;
+            }
+            else {
+                $is_eth = 0;
             }
         }
+            
+        next unless $is_eth;
+        
+        if ( /inet addr:(\d+\.\d+\.\d+\.\d+)/ ) {
+            $iface{"ipv4"} = $1;
+        }
+        elsif ( /inet6 addr: (\d*:[^\/ ]*)(\/\d+)? +Scope:Global/ ) {
+            $iface{"ipv6"} = $1;
+        }
     }
+    
+    if ( %iface ) {
+        push @ret_interfaces, {
+            "name"  => $iface{"name"},
+            "mac"   => $iface{"mac"},
+            "ipv4"  => $iface{"ipv4"},
+            "ipv6"  => $iface{"ipv6"},
+        }
+    }
+
     close( $IFCONFIG );
 
     return @ret_interfaces;

@@ -27,7 +27,7 @@ use perfSONAR_PS::Common qw(duplicateHash parseToDOM);
 use perfSONAR_PS::Client::Topology;
 use perfSONAR_PS::Topology::ID qw(idConstruct idIsFQ);
 
-
+use constant UNIS_NS      => 'http://ogf.org/schema/network/topology/unis/20100528/';
 use constant PSCONFIG_NS        => 'http://ogf.org/schema/network/topology/psconfig/20100716/';
 use constant UNIS_NODE_XQUERY   => "//*[local-name()='node' and \@id='__NODEID__' and namespace-uri()='http://ogf.org/schema/network/topology/unis/20100528/']";
 
@@ -184,7 +184,7 @@ sub run {
     }
     
     my $node = $res->nonBlankChildNodes()->[0];
-    $node->setNamespace( PSCONFIG_NS, "unis", 0 );
+    $node->setNamespace( UNIS_NS, "unis", 0 );
     
     my $last_config;
     eval {
