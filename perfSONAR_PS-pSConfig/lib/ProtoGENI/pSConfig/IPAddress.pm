@@ -17,6 +17,7 @@ TODO:
 
 =cut
 
+use Socket;
 use Sys::Hostname;
 use Log::Log4perl qw(get_logger);
 

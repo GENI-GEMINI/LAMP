@@ -119,7 +119,7 @@
                   
                   <unis:port
                       id="urn:ogf:network:domain=pgeni.dev.private+slice+lamptutorial:node=server:port=iface0">
-                      <unis:name> eth4 </unis:name>
+                      <unis:name> not </unis:name>
                       <unis:portPropertiesBag>
                           <pgeni:portProperties
                               xmlns:pgeni="http://ogf.org/schema/network/topology/protogeni/20100716/"
@@ -128,7 +128,7 @@
                               sliver_urn="urn:publicid:IDN+pgeni.dev.private+sliver+151"
                               sliver_uuid="9a051e12-e257-11df-bca9-080027c7bf33"/>
                       </unis:portPropertiesBag>
-                      <unis:address type="mac"> 002320c2348b </unis:address>
+                      <unis:address type="mac"> 020000020104 </unis:address>
                       <unis:address type="ipv4"> 10.10.1.1 </unis:address>
                   </unis:port>
               </unis:node>
