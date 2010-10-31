@@ -160,10 +160,19 @@ sub buildChangeRequest {
     $request .= "  <nmwg:eventType>http://ggf.org/ns/nmwg/topology/20070809</nmwg:eventType>\n";
     $request .= "</nmwg:metadata>\n";
     $request .= "<nmwg:data id=\"data0\" metadataIdRef=\"meta0\">\n";
+    
     my $elm = $topology->cloneNode( 1 );
     $elm->unbindNode();
-
-    $request .= $elm->toString;
+    
+    if ( $topology->localname eq "topology" ) {
+        $request .= $elm->toString;
+    }
+    else {
+        $request .= "  <unis:topology id=\"topo0\" xmlns:unis=\"http://ogf.org/schema/network/topology/unis/20100528/\">\n";
+        $request .= $elm->toString;
+        $request .= "  </unis:topology>\n";
+    }
+    
     $request .= "</nmwg:data>\n";
     $request .= "</nmwg:message>\n";
 

@@ -232,7 +232,7 @@ sub run {
         #   changed while we were processing it (duplicate and compare).
         #   Maybe we also need to make sure the modules didn't do something
         #   like change the id of the node.
-        ( $status, $res ) = $self->{UNIS_CLIENT}->changeTopology( "replace", $node );
+        ( $status, $res ) = $self->{UNIS_CLIENT}->changeTopology( "replace", $node_clone );
         
         if ( $status != 0 ) {
             my $msg = "Couldn't replace node: $res";
