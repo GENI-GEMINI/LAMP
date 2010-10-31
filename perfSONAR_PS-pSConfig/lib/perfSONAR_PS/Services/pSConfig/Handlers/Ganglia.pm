@@ -211,9 +211,6 @@ sub configure_gmond {
     foreach my $interface ( $parameters->{node}->findnodes( INTERFACE_NAME_XPATH ) ) {
         my $name = extract( $interface, 1 );
         
-        # TODO: We will want to revise this eventually.
-        next unless $name =~ m/^eth/;
-        
         $self->{INTERFACES}->{$name} = 1;
     }
     
@@ -228,6 +225,12 @@ sub configure_gmond {
     my $res = save_file( { file => $self->{GMOND_CONF_FILE}, content => $gmond_conf_output } );
     if ( $res == -1 ) {
         $self->{LOGGER}->error( "File save failed: " . $self->{GMOND_CONF_FILE} );
+        return -1;
+    }
+    
+    my $status = restart_service( { name => "ganglia_gmond" } );
+    if ( $status != 0 ) {
+        $self->{LOGGER}->error( "Couldn't restart gmond" );
         return -1;
     }
     
@@ -253,6 +256,12 @@ sub configure_gmetad {
     $status = save_file( { file => $self->{GMETAD_CONF_FILE}, content => $gmetad_conf_output } );
     if ( $status == -1 ) {
         $self->{LOGGER}->error( "File save failed: " . $self->{GMETAD_CONF_FILE} );
+        return -1;
+    }
+    
+    $status = restart_service( { name => "ganglia_gmetad" } );
+    if ( $status != 0 ) {
+        $self->{LOGGER}->error( "Couldn't restart gmetad" );
         return -1;
     }
     
