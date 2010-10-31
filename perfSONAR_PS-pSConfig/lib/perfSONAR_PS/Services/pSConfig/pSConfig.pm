@@ -223,7 +223,8 @@ sub run {
             $self->{FAILED_LAST}->{$handler} = 1
         } 
         else {
-           $push = ( $res or $push );
+            $changed = ( $changed or $push );
+            $push = ( $res or $push );
         }
     }
 
