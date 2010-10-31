@@ -519,7 +519,7 @@ sub maintenance {
     my ( $self, @args ) = @_;
     my $parameters = validateParams( @args, {} );
 
-    return $self->{CONF}->{"perfsonarbuoy"}->{"maintenance_interval"};
+    return $self->{CONF}->{"snmp"}->{"maintenance_interval"};
 }
 
 sub inline_maintenance {
