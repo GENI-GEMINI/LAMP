@@ -205,16 +205,16 @@ sub new {
     $self->{MAP}{"part_max_used"}{"eventTypes"} = [ "http://ggf.org/ns/nmwg/tools/ganglia/memory/disk/partitions/used/2.0", "http://ggf.org/ns/nmwg/characteristic/memory/disk/partitions/used/2.0" ];
     $self->{MAP}{"part_max_used"}{"type"}       = "node";
     $self->{MAP}{"part_max_used"}{"ds"}         = "sum";
-    $self->{MAP}{"bytes_in"}{"eventTypes"}      = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/bytes/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/bytes/received/2.0", "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" ];
+    $self->{MAP}{"bytes_in"}{"eventTypes"}      = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/bytes/received/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/bytes/received/2.0", "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" ];
     $self->{MAP}{"bytes_in"}{"type"}            = "node";
     $self->{MAP}{"bytes_in"}{"ds"}              = "sum";
-    $self->{MAP}{"bytes_out"}{"eventTypes"}     = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/bytes/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/bytes/sent/2.0", "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" ];
+    $self->{MAP}{"bytes_out"}{"eventTypes"}     = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/bytes/sent/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/bytes/sent/2.0", "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" ];
     $self->{MAP}{"bytes_out"}{"type"}           = "node";
     $self->{MAP}{"bytes_out"}{"ds"}             = "sum";
-    $self->{MAP}{"pkts_in"}{"eventTypes"}       = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/packets/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/packets/received/2.0" ];
+    $self->{MAP}{"pkts_in"}{"eventTypes"}       = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/packets/received/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/packets/received/2.0" ];
     $self->{MAP}{"pkts_in"}{"type"}             = "node";
     $self->{MAP}{"pkts_in"}{"ds"}               = "sum";
-    $self->{MAP}{"pkts_out"}{"eventTypes"}      = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/packets/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/packets/sent/2.0" ];
+    $self->{MAP}{"pkts_out"}{"eventTypes"}      = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/packets/sent/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/packets/sent/2.0" ];
     $self->{MAP}{"pkts_out"}{"type"}            = "node";
     $self->{MAP}{"pkts_out"}{"ds"}              = "sum";
     $self->{MAP}{"proc_total"}{"eventTypes"}   = [ "http://ggf.org/ns/nmwg/tools/ganglia/cpu/process/total/2.0", "http://ggf.org/ns/nmwg/characteristic/cpu/process/total/2.0" ];
@@ -278,7 +278,7 @@ sub new {
     $self->{MAP}{"swap_total"}{"type"}         = "node";
     $self->{MAP}{"swap_total"}{"ds"}           = "sum";
 
-    $self->{TEMPLATES}{"bytes_in_\\w+"}{"eventTypes"}      = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/bytes/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/bytes/2.0", "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" ];
+    $self->{TEMPLATES}{"bytes_in_\\w+"}{"eventTypes"}      = [ "http://ggf.org/ns/nmwg/tools/ganglia/network/utilization/bytes/received/2.0", "http://ggf.org/ns/nmwg/characteristic/network/utilization/bytes/2.0", "http://ggf.org/ns/nmwg/characteristic/utilization/2.0" ];
     $self->{TEMPLATES}{"bytes_in_\\w+"}{"type"}            = "interface";
     $self->{TEMPLATES}{"bytes_in_\\w+"}{"ds"}              = "sum";
     $self->{TEMPLATES}{"bytes_in_\\w+"}{"ifNameRegex"}     = "bytes_in_(\\w+)";
