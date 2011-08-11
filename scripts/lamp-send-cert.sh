@@ -15,7 +15,6 @@ while (( "$#" )); do
 	ssh ${USER}@$1 "sudo mv ${CERT} /usr/local/etc/protogeni/ssl/lampcert.pem; 
 			sudo chown root.perfsonar /usr/local/etc/protogeni/ssl/lampcert.pem; 
 			sudo chmod 440 /usr/local/etc/protogeni/ssl/lampcert.pem;
-			sudo /usr/local/etc/lamp/bootstrap.sh urn:publicid:IDN+emulab.net+slice+lampdemo urn:publicid:IDN+emulab.net+user+kissel;
 			sudo /etc/init.d/psconfig restart"
 	shift
 done
