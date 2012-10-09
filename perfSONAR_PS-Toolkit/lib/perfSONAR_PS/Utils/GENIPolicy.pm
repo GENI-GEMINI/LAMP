@@ -78,8 +78,8 @@ sub verify_cgi {
             die "Error decoding certificate:" . $decoded->error;
         }
         foreach my $tmp (@{ $decoded->SubjectAltName }) {
-            if ($tmp =~ /^uniformResourceIdentifier=(.*)$/ ||
-                $tmp =~ /^(urn:.*)$/) {
+            if ($tmp =~ /^uniformResourceIdentifier=(urn:publicid:.*)$/ ||
+                $tmp =~ /^(urn:publicid:.*)$/) {
                 $GENIURN = $ENV{'GENIURN'} = $1;
             }
         }
